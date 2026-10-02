@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>中一 · 管理</title>
 <style>
-:root{--bg:#f6f7fb;--card:#fff;--ink:#141a2b;--mut:#6b7488;--line:#e6e9f0;--acc:#2f6bff;--bad:#e5484d}
-@media (prefers-color-scheme:dark){:root{--bg:#0b0f1c;--card:#141a2c;--ink:#eef2fb;--mut:#8792ad;--line:#232b42;--acc:#7fb0ff;--bad:#ff6b81}}
+:root{--bg:#f6f7fb;--card:#fff;--ink:#141a2b;--mut:#6b7488;--line:#e6e9f0;--acc:#2f6bff;--bad:#e5484d;--ok:#16a34a}
+@media (prefers-color-scheme:dark){:root{--bg:#0b0f1c;--card:#141a2c;--ink:#eef2fb;--mut:#8792ad;--line:#232b42;--acc:#7fb0ff;--bad:#ff6b81;--ok:#3ee0a8}}
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--ink);font-family:Inter,"Noto Sans HK","PingFang HK","Microsoft JhengHei",system-ui,sans-serif}
 .wrap{max-width:720px;margin:0 auto;padding:48px 16px 80px}
@@ -14,17 +14,26 @@ h1{font-size:28px;font-weight:900}
 .top{display:flex;align-items:center;gap:12px;margin-bottom:28px}
 .top a,.link{margin-left:auto;color:var(--mut);font-size:14px;text-decoration:none;background:none;border:0;cursor:pointer}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;margin-bottom:18px}
-label{display:block;font-size:13px;color:var(--mut);margin:12px 0 6px}
+label{display:block;font-size:13px;color:var(--mut);margin:14px 0 6px}
 input,select{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit}
 button.btn{margin-top:16px;padding:11px 20px;border-radius:10px;border:0;background:var(--acc);color:#fff;font:inherit;font-weight:700;cursor:pointer}
-button.btn:disabled{opacity:.5}
-.drop{border:2px dashed var(--line);border-radius:12px;padding:26px;text-align:center;color:var(--mut);cursor:pointer}
+button.btn:disabled{opacity:.5;cursor:default}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--mut);margin-top:12px}
 .drop.on{border-color:var(--acc);color:var(--ink)}
+.pick{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+.pick button{padding:8px 14px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
+.tip{font-size:12px;color:var(--mut);margin-top:10px;line-height:1.6}
+.files{margin-top:12px;font-size:13px;max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.files div{display:flex;gap:8px;padding:2px 0;color:var(--mut)}
+.files div.entry{color:var(--ok);font-weight:700}
+.files span:last-child{margin-left:auto}
+.fsum{display:flex;align-items:center;margin-top:10px;font-size:13px}
+.fsum button{margin-left:auto;background:none;border:0;color:var(--bad);cursor:pointer;font:inherit;font-size:13px}
 .row{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
 .row:first-child{border-top:0}
 .row .t{font-weight:700}.row .d{font-size:13px;color:var(--mut)}
-.row a{color:var(--acc);font-size:14px;text-decoration:none;margin-left:auto}
-.del{background:none;border:1px solid var(--line);color:var(--bad);border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit;font-size:13px}
+.row a{color:var(--acc);font-size:14px;text-decoration:none;margin-left:auto;white-space:nowrap}
+.del{background:none;border:1px solid var(--line);color:var(--bad);border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit;font-size:13px;white-space:nowrap}
 .msg{margin-top:12px;font-size:14px;min-height:1em}
 .msg.err{color:var(--bad)}
 .hide{display:none}
@@ -43,9 +52,18 @@ h2{font-size:16px;margin-bottom:6px}
 
   <div class="hide" id="adminBox">
     <div class="card">
-      <h2>上載課件（HTML）</h2>
+      <h2>上載課件</h2>
       <form id="upForm">
-        <div class="drop" id="drop">撳呢度揀 .html 檔案，或者拖入嚟<input type="file" id="file" accept=".html,.htm,text/html" hidden></div>
+        <div class="drop" id="drop">將 HTML 檔案、成個資料夾，或者 .zip 拖入嚟
+          <div class="pick">
+            <button type="button" id="pickFiles">揀檔案（可多個）</button>
+            <button type="button" id="pickDir">揀資料夾</button>
+          </div>
+          <input type="file" id="fileIn" multiple hidden>
+          <input type="file" id="dirIn" webkitdirectory multiple hidden>
+        </div>
+        <div class="tip">支援：單一 .html ／ 多個檔案（html + js、css、圖片、音效…）／ 成個資料夾 ／ .zip（伺服器自動解壓）。<br>入口優先用 <b>index.html</b>，否則用最外層嘅 .html。檔案之間請用相對路徑，例如 <code>js/app.js</code>、<code>img/a.png</code>。</div>
+        <div id="fileBox" class="hide"><div class="fsum"><span id="fsumTxt"></span><button type="button" id="clearFiles">清除</button></div><div class="files" id="files"></div></div>
         <label>標題（留空就用 HTML 入面嘅 &lt;title&gt;）</label><input id="title" maxlength="120">
         <label>簡介（可選）</label><input id="desc" maxlength="200">
         <label>科目</label><select id="subject"></select>
@@ -60,8 +78,10 @@ h2{font-size:16px;margin-bottom:6px}
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-let picked = null;
+const JUNK = /(^|\/)(\.DS_Store|Thumbs\.db|__MACOSX|\._[^/]*)(\/|$)/;
+const sel = new Map(); // relative path -> File
 
+/* ---------- auth & list ---------- */
 async function boot() {
   const { admin } = await (await fetch('/api/me')).json();
   $('loginBox').classList.toggle('hide', admin);
@@ -71,7 +91,7 @@ async function boot() {
 async function load() {
   const { subjects, lessons } = await (await fetch('/api/lessons')).json();
   if (!$('subject').options.length) $('subject').innerHTML = subjects.map(s => `<option>${esc(s)}</option>`).join('');
-  $('list').innerHTML = lessons.length ? lessons.map(l => `<div class="row"><div><div class="t">${esc(l.title)}</div><div class="d">${esc(l.subject)}${l.desc ? ' · ' + esc(l.desc) : ''}</div></div><a href="/lesson/${l.id}" target="_blank">開啟</a><button class="del" data-id="${l.id}" data-t="${esc(l.title)}">刪除</button></div>`).join('') : '<div class="d">未有課件</div>';
+  $('list').innerHTML = lessons.length ? lessons.map(l => `<div class="row"><div><div class="t">${esc(l.title)}</div><div class="d">${esc(l.subject)}${l.files > 1 ? ' · ' + l.files + ' 個檔案' : ''}${l.desc ? ' · ' + esc(l.desc) : ''}</div></div><a href="/lesson/${l.id}/" target="_blank">開啟</a><button class="del" data-id="${l.id}" data-t="${esc(l.title)}">刪除</button></div>`).join('') : '<div class="d">未有課件</div>';
 }
 $('loginForm').onsubmit = async e => {
   e.preventDefault();
@@ -79,33 +99,104 @@ $('loginForm').onsubmit = async e => {
   if (r.ok) boot(); else $('loginMsg').textContent = (await r.json()).error || '登入失敗';
 };
 $('logout').onclick = async () => { await fetch('/api/logout', { method: 'POST' }); boot(); };
-
-function pick(f) {
-  if (!f) return;
-  if (!/\.html?$/i.test(f.name)) { $('upMsg').textContent = '只接受 .html 檔案'; $('upMsg').className = 'msg err'; return; }
-  picked = f; $('drop').textContent = '已揀：' + f.name; $('drop').classList.add('on'); $('upBtn').disabled = false; $('upMsg').textContent = '';
-}
-$('drop').onclick = () => $('file').click();
-$('file').onchange = e => pick(e.target.files[0]);
-['dragover', 'dragenter'].forEach(ev => $('drop').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.add('on'); }));
-$('drop').addEventListener('drop', e => { e.preventDefault(); pick(e.dataTransfer.files[0]); });
-
-$('upForm').onsubmit = async e => {
-  e.preventDefault(); if (!picked) return;
-  $('upBtn').disabled = true; $('upMsg').className = 'msg'; $('upMsg').textContent = '上載中…';
-  const r = await fetch('/api/lessons', { method: 'POST', body: picked, headers: {
-    'Content-Type': 'text/html', 'X-Title': encodeURIComponent($('title').value), 'X-Desc': encodeURIComponent($('desc').value), 'X-Subject': encodeURIComponent($('subject').value) } });
-  const j = await r.json().catch(() => ({}));
-  if (r.ok) {
-    $('upMsg').textContent = '✓ 已上載：' + j.title; picked = null; $('upForm').reset();
-    $('drop').textContent = '撳呢度揀 .html 檔案，或者拖入嚟'; $('drop').classList.remove('on'); load();
-  } else { $('upMsg').className = 'msg err'; $('upMsg').textContent = j.error || '上載失敗'; $('upBtn').disabled = false; }
-};
 $('list').onclick = async e => {
   const b = e.target.closest('.del'); if (!b) return;
   if (!confirm('確定刪除「' + b.dataset.t + '」？')) return;
   const r = await fetch('/api/lessons/' + b.dataset.id, { method: 'DELETE' });
   if (r.ok) load(); else alert('刪除失敗');
+};
+
+/* ---------- file selection ---------- */
+function add(rel, file) { rel = rel.replace(/\\/g, '/').replace(/^\/+/, ''); if (rel && !JUNK.test(rel)) sel.set(rel, file); }
+function stripTop(paths) { // remove one shared top-level folder
+  const first = paths[0] && paths[0].split('/')[0];
+  return paths.length && paths.every(p => p.includes('/') && p.split('/')[0] === first);
+}
+function normalized() {
+  let entries = [...sel.entries()];
+  while (stripTop(entries.map(e => e[0]))) entries = entries.map(([p, f]) => [p.slice(p.indexOf('/') + 1), f]);
+  return entries.sort((a, b) => a[0].localeCompare(b[0]));
+}
+function guessEntry(paths) {
+  const h = paths.filter(p => /\.html?$/i.test(p));
+  return h.find(p => /^index\.html?$/i.test(p)) || h.sort((a, b) => a.split('/').length - b.split('/').length || a.localeCompare(b))[0];
+}
+const kb = n => n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+function refresh() {
+  const list = normalized(), box = $('fileBox');
+  box.classList.toggle('hide', !list.length);
+  $('upMsg').textContent = ''; $('upMsg').className = 'msg';
+  if (!list.length) { $('upBtn').disabled = true; return; }
+  const isZip = list.length === 1 && /\.zip$/i.test(list[0][0]);
+  const entry = isZip ? null : guessEntry(list.map(e => e[0]));
+  const total = list.reduce((s, e) => s + e[1].size, 0);
+  $('fsumTxt').textContent = isZip ? `zip 檔案 · ${kb(total)} · 上載後喺伺服器解壓` : `${list.length} 個檔案 · ${kb(total)}` + (entry ? ` · 入口：${entry}` : '');
+  $('files').innerHTML = list.slice(0, 300).map(([p, f]) => `<div class="${p === entry ? 'entry' : ''}"><span>${p === entry ? '▶' : '·'}</span><span>${esc(p)}</span><span>${kb(f.size)}</span></div>`).join('') + (list.length > 300 ? `<div>…仲有 ${list.length - 300} 個</div>` : '');
+  if (!isZip && !entry) { $('upMsg').className = 'msg err'; $('upMsg').textContent = '需要至少一個 .html 檔案（或者直接上載 .zip）'; }
+  $('upBtn').disabled = !isZip && !entry;
+}
+$('pickFiles').onclick = () => $('fileIn').click();
+$('pickDir').onclick = () => $('dirIn').click();
+$('fileIn').onchange = e => { [...e.target.files].forEach(f => add(f.name, f)); e.target.value = ''; refresh(); };
+$('dirIn').onchange = e => { [...e.target.files].forEach(f => add(f.webkitRelativePath || f.name, f)); e.target.value = ''; refresh(); };
+$('clearFiles').onclick = () => { sel.clear(); refresh(); };
+async function walk(entry, prefix) {
+  if (entry.isFile) { const f = await new Promise((r, j) => entry.file(r, j)); add(prefix + f.name, f); }
+  else if (entry.isDirectory) {
+    const reader = entry.createReader(); let batch;
+    do { batch = await new Promise((r, j) => reader.readEntries(r, j)); for (const e of batch) await walk(e, prefix + entry.name + '/'); } while (batch.length);
+  }
+}
+const drop = $('drop');
+['dragover', 'dragenter'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('on'); }));
+drop.addEventListener('dragleave', () => drop.classList.remove('on'));
+drop.addEventListener('drop', async e => {
+  e.preventDefault(); drop.classList.remove('on');
+  const items = [...(e.dataTransfer.items || [])].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  if (items.length) { for (const it of items) await walk(it, ''); }
+  else [...e.dataTransfer.files].forEach(f => add(f.name, f));
+  refresh();
+});
+
+/* ---------- tiny zip writer (store, no compression) ---------- */
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+async function makeZip(entries) {
+  const enc = new TextEncoder(), parts = [], cd = []; let off = 0, cdSize = 0;
+  for (const [p, file] of entries) {
+    const name = enc.encode(p), data = new Uint8Array(await file.arrayBuffer()), crc = crc32(data);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x800, true); h.setUint16(12, 0x21, true);
+    h.setUint32(14, crc, true); h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, name.length, true);
+    parts.push(h.buffer, name, data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x800, true); c.setUint16(14, 0x21, true);
+    c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true); c.setUint16(28, name.length, true); c.setUint32(42, off, true);
+    cd.push(c.buffer, name); cdSize += 46 + name.length;
+    off += 30 + name.length + data.length;
+  }
+  const e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, entries.length, true); e.setUint16(10, entries.length, true); e.setUint32(12, cdSize, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...cd, e.buffer], { type: 'application/zip' });
+}
+
+/* ---------- upload ---------- */
+$('upForm').onsubmit = async e => {
+  e.preventDefault();
+  const list = normalized(); if (!list.length) return;
+  $('upBtn').disabled = true; $('upMsg').className = 'msg'; $('upMsg').textContent = '準備緊…';
+  try {
+    let body;
+    if (list.length === 1 && /\.(zip|html?)$/i.test(list[0][0])) body = list[0][1]; // single html or zip: send as-is
+    else body = await makeZip(list);
+    $('upMsg').textContent = `上載中…（${kb(body.size)}）`;
+    const r = await fetch('/api/lessons', { method: 'POST', body, headers: {
+      'Content-Type': 'application/octet-stream', 'X-Title': encodeURIComponent($('title').value), 'X-Desc': encodeURIComponent($('desc').value), 'X-Subject': encodeURIComponent($('subject').value) } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || (r.status === 413 ? '檔案太大' : '上載失敗'));
+    $('upMsg').textContent = `✓ 已上載：${j.title}（${j.files} 個檔案，入口 ${j.entry}）`;
+    sel.clear(); $('title').value = ''; $('desc').value = ''; $('fileBox').classList.add('hide'); load();
+  } catch (err) { $('upMsg').className = 'msg err'; $('upMsg').textContent = err.message; $('upBtn').disabled = false; }
 };
 boot();
 </script>

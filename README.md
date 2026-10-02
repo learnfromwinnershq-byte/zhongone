@@ -7,7 +7,7 @@
 | 路徑 | 用途 |
 |---|---|
 | `/` | 課程列表（孩子用） |
-| `/lesson/<id>` | 開啟課件（以 sandbox 方式執行上載嘅 HTML） |
+| `/lesson/<id>/` | 開啟課件（以 sandbox 方式執行；同一課件內嘅 js / css / 圖片用相對路徑存取） |
 | `/admin` | 管理員登入、上載 / 刪除課件 |
 | `/healthz` | 健康檢查 |
 
@@ -18,6 +18,17 @@
 | `PORT` | `3000` | 監聽端口 |
 | `HOST` | `0.0.0.0` | 監聽地址 |
 | `DATA_DIR` | `./data` | 課件同 `lessons.json` 存放位置，請保留 / 備份 |
+| `MAX_UPLOAD_MB` | `100` | 單次上載上限（MB）；解壓後上限為 3 倍 |
+
+## 上載課件格式
+喺 `/admin` 可以上載：
+- **單一 `.html`**
+- **多個檔案 / 成個資料夾**（html + js、css、圖片、音效…）：瀏覽器會自動打包成 zip 再上載
+- **`.zip`**：伺服器自動解壓（支援一般 zip；唔支援加密 / zip64）
+
+每個課件存放喺 `DATA_DIR/lessons/<id>/`。入口優先用 `index.html`，否則用最外層嘅 `.html`。
+如果所有檔案都包喺同一個資料夾入面，會自動去除嗰層。`__MACOSX`、`.DS_Store` 會被忽略，`../` 等不安全路徑會被拒絕。
+課件內請用相對路徑引用資源（例如 `js/app.js`、`img/a.png`）。
 
 ## 部署（VPS）
 
@@ -56,10 +67,10 @@ your.domain.com {
     reverse_proxy 127.0.0.1:3000
 }
 ```
-如用 Nginx，請加 `proxy_set_header X-Forwarded-Proto $scheme;` 及 `client_max_body_size 20m;`。
+如用 Nginx，請加 `proxy_set_header X-Forwarded-Proto $scheme;` 及 `client_max_body_size 100m;`（同 `MAX_UPLOAD_MB` 一致）。
 
 ## 更新
 ```bash
 cd /opt/zhongone && git pull && sudo systemctl restart zhongone
 ```
-`DATA_DIR` 入面嘅課件唔會因更新而受影響。
+`DATA_DIR` 入面嘅課件唔會因更新而受影響（舊版單檔格式會喺啟動時自動轉換）。

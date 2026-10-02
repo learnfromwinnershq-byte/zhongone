@@ -41,7 +41,7 @@ fetch('/api/lessons').then(r => r.json()).then(({ subjects, lessons }) => {
     const items = lessons.filter(l => l.subject === s);
     if (!items.length) return '';
     return `<h2>${esc(s)}</h2><div class="list">` + items.map(l =>
-      `<a class="item" href="/lesson/${l.id}"><span class="ic">▶</span><span><div class="t">${esc(l.title)}</div>${l.desc ? `<div class="d">${esc(l.desc)}</div>` : ''}</span><span class="go">›</span></a>`
+      `<a class="item" href="/lesson/${l.id}/"><span class="ic">▶</span><span><div class="t">${esc(l.title)}</div>${l.desc ? `<div class="d">${esc(l.desc)}</div>` : ''}</span><span class="go">›</span></a>`
     ).join('') + '</div>';
   }).join('');
 }).catch(() => { document.getElementById('root').innerHTML = '<div class="empty">載入失敗，請重新整理</div>'; });
