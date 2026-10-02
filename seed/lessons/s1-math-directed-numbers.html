@@ -1,0 +1,1118 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Directed Numbers × ÷</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+HK:wght@400;500;700;900&display=swap">
+<style>
+:root{
+  --bg:#0a0f1e; --ink:#eef2fb; --muted:#8792ad; --faint:rgba(255,255,255,.05);
+  --pos:#3ee0a8; --neg:#ff6b81; --acc:#ffcf6b; --blue:#86b4ff;
+  --card:rgba(255,255,255,.045); --line:rgba(255,255,255,.11);
+  --posbg:rgba(62,224,168,.14); --negbg:rgba(255,107,129,.14); --accbg:rgba(255,207,107,.13);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#000;color:var(--ink);overflow:hidden;
+  font-family:Inter,"Noto Sans HK","PingFang HK","Microsoft JhengHei",system-ui,sans-serif}
+button{font:inherit;color:inherit}
+#player{position:fixed;inset:0;background:#04060c;user-select:none;-webkit-user-select:none}
+#stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;overflow:hidden;transform-origin:center;
+  background:radial-gradient(1100px 700px at 25% 15%,#15224a 0%,transparent 62%),
+             radial-gradient(900px 620px at 88% 92%,#1c1642 0%,transparent 60%),var(--bg)}
+#stage::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(var(--faint) 1px,transparent 1px),linear-gradient(90deg,var(--faint) 1px,transparent 1px);
+  background-size:80px 80px;-webkit-mask-image:radial-gradient(ellipse at center,#000 25%,transparent 78%);mask-image:radial-gradient(ellipse at center,#000 25%,transparent 78%)}
+#layer{position:absolute;inset:0}
+.scene{position:absolute;inset:0;transition:opacity .45s ease}
+.scene.leaving{opacity:0}
+.el{position:absolute;white-space:nowrap;
+  transition:left .8s cubic-bezier(.2,.8,.2,1),top .8s cubic-bezier(.2,.8,.2,1),opacity .55s ease,transform .8s cubic-bezier(.2,.8,.2,1)}
+[k]{transition:opacity .45s ease,transform .6s cubic-bezier(.2,.8,.2,1),color .4s,background-color .4s,box-shadow .4s,border-color .4s}
+.instant,.instant *{transition:none!important;animation:none!important}
+.bump{animation:bump .5s cubic-bezier(.2,.9,.3,1.4)}
+@keyframes bump{0%{transform:scale(.6);opacity:.2}100%{transform:scale(1);opacity:1}}
+.pulse{animation:pulse 1.1s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+
+/* ---------- HUD ---------- */
+#hud{position:absolute;left:64px;top:46px;display:flex;align-items:center;gap:16px;font-size:26px;color:var(--muted);transition:opacity .4s}
+#hud .no{font-weight:800;color:var(--ink);background:rgba(255,255,255,.08);border:1px solid var(--line);border-radius:12px;padding:4px 14px;font-variant-numeric:tabular-nums}
+#hud .nm{font-family:"Noto Sans HK",Inter,sans-serif;font-weight:500;letter-spacing:.02em}
+#brand{position:absolute;right:64px;top:52px;font-size:22px;letter-spacing:.18em;color:rgba(255,255,255,.28);font-weight:600}
+#think{position:absolute;right:70px;top:110px;width:170px;height:170px;opacity:0;transform:scale(.8);transition:opacity .35s,transform .35s}
+#think.on{opacity:1;transform:scale(1)}
+#think svg{position:absolute;inset:0;transform:rotate(-90deg)}
+#think .num{position:absolute;inset:0;display:grid;place-items:center;font-size:64px;font-weight:800;color:var(--acc);font-variant-numeric:tabular-nums}
+#think .cap{position:absolute;left:0;right:0;bottom:-44px;text-align:center;font-size:26px;color:var(--acc);font-family:"Noto Sans HK";letter-spacing:.1em}
+#sub{position:absolute;left:50%;bottom:44px;transform:translateX(-50%);max-width:1640px;width:max-content;text-align:center;
+  font-family:"Noto Sans HK",Inter,sans-serif;font-size:46px;font-weight:500;line-height:1.38;color:#fff;
+  background:rgba(4,7,16,.74);border:1px solid rgba(255,255,255,.07);padding:14px 36px 16px;border-radius:18px;
+  box-shadow:0 10px 40px rgba(0,0,0,.35);transition:opacity .25s,transform .3s}
+#sub.empty{opacity:0}
+#sub.think{color:var(--acc);background:rgba(40,30,8,.7)}
+#sub .en{color:#bcd4ff;font-family:Inter,sans-serif;font-weight:600}
+#sub .p{color:var(--pos);font-weight:700}
+#sub .n{color:var(--neg);font-weight:700}
+#player.ui #sub{transform:translateX(-50%) translateY(-58px)}
+#player.nocc #sub{display:none}
+
+/* ---------- typography & math ---------- */
+.zh{font-family:"Noto Sans HK",Inter,sans-serif}
+.hd{font-family:"Noto Sans HK",Inter,sans-serif;font-size:56px;font-weight:700;letter-spacing:.01em}
+.hd small{font-size:.6em;color:var(--muted);font-weight:500;margin-left:.5em}
+.eq{display:flex;align-items:center;gap:.16em;font-size:104px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.eq.md{font-size:80px}.eq.sm{font-size:60px}.eq.xs{font-size:48px}
+.op{color:var(--muted);font-weight:400;margin:0 .06em}
+.op.ghost{color:var(--acc);font-weight:600}
+.pos{color:var(--pos)}.neg{color:var(--neg)}.acc{color:var(--acc)}.mut{color:var(--muted)}
+.dn{position:relative;display:inline-flex;align-items:center}
+.sg{display:inline-block;border-radius:.18em;padding:.02em .05em;line-height:.8}
+.sg.pos{color:var(--pos)}.sg.neg{color:var(--neg)}
+.sg.ring{box-shadow:0 0 0 .04em currentColor,0 0 .35em currentColor}
+.sg.pos.ring{background:var(--posbg)}.sg.neg.ring{background:var(--negbg)}
+.badge{position:absolute;top:-.42em;right:-.18em;width:1.45em;height:1.45em;font-size:.32em;border-radius:50%;
+  display:grid;place-items:center;background:var(--neg);color:#2a0910;font-weight:800;box-shadow:0 4px 18px rgba(255,107,129,.5)}
+.frac{display:inline-flex;flex-direction:column;align-items:center;vertical-align:middle;font-size:.6em;line-height:1.08;margin:0 .06em}
+.frac>span:first-child{border-bottom:.075em solid currentColor;padding:0 .14em .02em}
+.frac>span:last-child{padding:.02em .14em 0}
+.frac.big{font-size:.85em}
+.bp{font-size:1.45em;font-weight:200;line-height:1;transform:translateY(-.05em)}
+.cx{position:relative;display:inline-block}
+.cx::after{content:"";position:absolute;left:-12%;right:-12%;top:50%;height:.09em;background:var(--neg);border-radius:1em;transform:rotate(-28deg) scaleX(0);transition:transform .45s}
+.cx.x{color:var(--muted)}
+.cx.x::after{transform:rotate(-28deg) scaleX(1)}
+.cx::before{content:attr(data-r);position:absolute;right:-.6em;top:-.72em;font-size:.68em;color:var(--acc);font-weight:800;opacity:0;transition:opacity .4s .25s}
+.cx.dnm::before{top:auto;bottom:-.78em}
+.cx.x::before{opacity:1}
+.res{display:inline-flex;align-items:center;gap:.16em}
+.chip{display:inline-grid;place-items:center;width:1.25em;height:1.25em;border-radius:50%;font-weight:700;line-height:1}
+.chip.pos{background:var(--posbg);color:var(--pos);box-shadow:inset 0 0 0 .05em var(--pos)}
+.chip.neg{background:var(--negbg);color:var(--neg);box-shadow:inset 0 0 0 .05em var(--neg)}
+.chip.big{font-size:84px}
+.dim{opacity:.32!important}
+.box{border-radius:.18em;box-shadow:0 0 0 .05em var(--acc),0 0 .6em rgba(255,207,107,.35);background:var(--accbg)}
+.ghosty{opacity:.55}
+
+/* ---------- components ---------- */
+.titleblk{text-align:center}
+.kicker{font-size:28px;letter-spacing:.32em;color:var(--blue);font-weight:700;margin-bottom:22px}
+.h1{font-size:104px;font-weight:800;letter-spacing:-.025em;line-height:1.04}
+.h1.sub2{color:rgba(255,255,255,.62);font-weight:700}
+.zhline{margin-top:26px;font-family:"Noto Sans HK";font-size:46px;color:var(--muted);letter-spacing:.12em}
+.stepcard{width:520px;padding:38px 44px;border-radius:30px;background:var(--card);border:1px solid var(--line);text-align:center;transition:box-shadow .5s,border-color .5s}
+.stepno{font-size:24px;letter-spacing:.3em;color:var(--muted);font-weight:700}
+.stepbig{font-size:92px;font-weight:800;letter-spacing:.02em;margin:6px 0 4px}
+.stepcard.sign .stepbig{background:linear-gradient(90deg,var(--pos),var(--neg));-webkit-background-clip:text;background-clip:text;color:transparent}
+.stepcard.num .stepbig{color:var(--acc)}
+.stepzh{font-family:"Noto Sans HK";font-size:38px;color:#cfd6e6}
+.glow .stepcard.sign{border-color:rgba(134,180,255,.6);box-shadow:0 0 60px rgba(134,180,255,.25)}
+.glow .stepcard.num{border-color:rgba(255,207,107,.6);box-shadow:0 0 60px rgba(255,207,107,.22)}
+.bigarrow{font-size:96px;color:var(--muted)}
+
+.builder{display:flex;align-items:flex-end;gap:26px}
+.bslot{display:flex;flex-direction:column;align-items:center;gap:14px}
+.blab{font-size:26px;letter-spacing:.16em;font-weight:700;color:var(--muted)}
+.blab b{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.1);color:#fff;margin-right:8px;letter-spacing:0}
+.bval{min-width:180px;height:160px;padding:0 30px;border-radius:26px;border:3px dashed rgba(255,255,255,.18);display:grid;place-items:center;
+  font-size:100px;font-weight:700;color:rgba(255,255,255,.3);font-variant-numeric:tabular-nums}
+.bsign.pos{color:var(--pos);border:3px solid var(--pos);background:var(--posbg)}
+.bsign.neg{color:var(--neg);border:3px solid var(--neg);background:var(--negbg)}
+.bnum.on{color:#fff;border:3px solid var(--acc);background:var(--accbg)}
+.bplus{font-size:60px;color:var(--muted);padding-bottom:44px}
+
+.ptable{display:flex;flex-direction:column}
+.prow{display:grid;grid-template-columns:110px 160px 70px 200px 70px 180px 120px;align-items:center;height:96px;font-size:68px;font-weight:600;font-variant-numeric:tabular-nums}
+.prow>span{text-align:center}
+.pm,.pp{font-size:34px!important;color:var(--acc);transform:translateY(-48px);font-weight:700}
+.pr.pos{color:var(--pos)}
+.prow.good{background:linear-gradient(90deg,transparent,rgba(62,224,168,.12),transparent);border-radius:20px}
+.arrowbox{color:var(--pos);filter:drop-shadow(0 0 30px rgba(62,224,168,.35))}
+.arrowbox.neg{color:var(--neg);filter:drop-shadow(0 0 30px rgba(255,107,129,.35))}
+.lab{font-family:"Noto Sans HK";font-size:58px;font-weight:700;color:var(--pos)}
+.lab.neg{color:var(--neg)}
+
+.g2{display:grid;grid-template-columns:auto auto auto;gap:46px 70px;align-items:center}
+.cell{display:flex;align-items:center;gap:20px;font-size:72px;padding:22px 34px;border-radius:26px;background:var(--card);border:1px solid var(--line)}
+.glab{font-size:44px;font-weight:600}
+.glab b{font-weight:800}
+.banner{display:flex;gap:60px;align-items:center;font-family:"Noto Sans HK";font-size:56px;font-weight:800;padding:26px 60px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid var(--line)}
+.calc{font-size:60px;font-weight:600;color:#dfe5f3;font-variant-numeric:tabular-nums}
+.calc .lbl{display:block;font-size:24px;letter-spacing:.2em;color:var(--muted);margin-bottom:10px;font-weight:700}
+.tag{font-size:34px;font-weight:700;padding:8px 22px;border-radius:999px;margin-left:30px;letter-spacing:.02em}
+.tag.p{background:var(--posbg);color:var(--pos)}.tag.n{background:var(--negbg);color:var(--neg)}
+.hint{display:flex;align-items:center;gap:22px;font-size:32px;color:var(--muted);font-weight:700;letter-spacing:.08em}
+.pill{padding:10px 26px;border-radius:999px;border:2px solid var(--line);color:#fff}
+.pill.s{border-color:rgba(134,180,255,.6)}.pill.n{border-color:rgba(255,207,107,.6)}
+
+.qlist{display:flex;flex-direction:column;gap:26px}
+.qrow{display:grid;grid-template-columns:560px 150px 340px;align-items:center;font-size:66px;font-weight:600;padding:14px 34px;border-radius:24px;background:var(--card);border:1px solid var(--line)}
+.qrow .chip{font-size:70px}
+.qans{font-size:60px;color:#dfe5f3}
+
+.rulecard{display:flex;flex-direction:column;gap:22px;padding:40px 60px;border-radius:32px;background:var(--card);border:1px solid var(--line)}
+.rline{display:flex;align-items:center;gap:30px;font-family:"Noto Sans HK";font-size:54px;font-weight:700}
+.rline .k{font-family:Inter;font-weight:800;padding:4px 20px;border-radius:14px;background:rgba(255,255,255,.08)}
+.pairrow{display:flex;align-items:center;gap:30px}
+.pairwrap{position:relative;display:inline-flex;gap:30px}
+.grp{position:absolute;left:-14px;right:-14px;top:100%;margin-top:18px;border-top:5px solid var(--pos);text-align:center;color:var(--pos);font-family:"Noto Sans HK";font-size:38px;font-weight:700;padding-top:8px;border-radius:4px}
+.arrowto{display:inline-flex;align-items:center;gap:30px;font-size:84px;color:var(--muted)}
+.tip{position:absolute;left:50%;bottom:118%;transform:translateX(-50%);font-family:"Noto Sans HK";font-size:30px;font-weight:700;color:#2a0910;background:var(--neg);padding:6px 16px;border-radius:12px;white-space:nowrap}
+.front{font-size:1.05em}
+.lr{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:34px;font-weight:700;color:var(--acc);letter-spacing:.1em}
+.lrline{width:1200px;height:6px;border-radius:6px;background:linear-gradient(90deg,transparent,var(--acc));position:relative}
+.lrline::after{content:"";position:absolute;right:-6px;top:50%;width:26px;height:26px;border-top:6px solid var(--acc);border-right:6px solid var(--acc);transform:translateY(-50%) rotate(45deg)}
+.steps{display:flex;flex-direction:column;gap:24px}
+.sline{display:flex;align-items:center;gap:24px;font-size:64px;font-weight:600;font-variant-numeric:tabular-nums}
+.sline .no{display:inline-grid;place-items:center;width:58px;height:58px;border-radius:50%;background:rgba(255,255,255,.1);font-size:30px;font-weight:800}
+.card{padding:34px 46px;border-radius:30px;background:var(--card);border:1px solid var(--line);white-space:normal}
+.card.wrongc{border-color:rgba(255,107,129,.45);background:rgba(255,107,129,.06)}
+.card.rightc{border-color:rgba(62,224,168,.45);background:rgba(62,224,168,.06)}
+.ctitle{font-family:"Noto Sans HK";font-size:40px;font-weight:800;margin-bottom:18px}
+.wrongc .ctitle{color:var(--neg)}.rightc .ctitle{color:var(--pos)}
+.cl{font-size:52px;font-weight:600;margin:10px 0;font-variant-numeric:tabular-nums;white-space:nowrap}
+.verdict{font-family:"Noto Sans HK";font-size:40px;font-weight:800;margin-top:12px}
+.pri{display:flex;align-items:center;gap:30px}
+.pitem{font-size:48px;font-weight:700;padding:22px 40px;border-radius:24px;background:var(--card);border:1px solid var(--line)}
+.pitem b{display:inline-grid;place-items:center;width:56px;height:56px;border-radius:50%;background:var(--acc);color:#231a05;margin-right:16px;font-size:32px}
+.parr{font-size:56px;color:var(--muted)}
+.mlist{display:flex;flex-direction:column;gap:20px;width:1640px}
+.mrow{display:grid;grid-template-columns:70px 720px 330px 1fr;align-items:center;font-size:46px;font-weight:600;padding:16px 30px;border-radius:22px;background:var(--card);border:1px solid var(--line)}
+.mno{display:inline-grid;place-items:center;width:52px;height:52px;border-radius:50%;background:rgba(255,107,129,.18);color:var(--neg);font-size:28px;font-weight:800}
+.mw s{color:var(--neg);text-decoration-thickness:4px}
+.mf{color:var(--pos);font-weight:700}
+.mwhy{font-family:"Noto Sans HK";font-size:36px;color:#cfd6e6;font-weight:500}
+.ccard{width:520px;min-height:430px;padding:40px 44px;border-radius:32px;background:var(--card);border:1px solid var(--line);white-space:normal;text-align:center}
+.ccard .ic{font-size:30px;letter-spacing:.2em;font-weight:800;color:var(--acc);margin-bottom:16px}
+.ccard h3{font-family:"Noto Sans HK";font-size:50px;font-weight:800;margin-bottom:28px}
+.ccard .body{font-size:42px;font-weight:600;line-height:1.6;color:#dfe5f3}
+.pz{display:flex;align-items:center;gap:18px;font-size:34px;font-weight:800;letter-spacing:.2em;color:var(--acc)}
+.pz i{display:inline-block;width:14px;height:40px;border-left:10px solid var(--acc);border-right:10px solid var(--acc);width:34px}
+.wl{font-size:54px;font-weight:600;margin:12px 0;font-variant-numeric:tabular-nums}
+.slist{display:flex;flex-direction:column;gap:22px;width:1500px}
+.srow{display:flex;align-items:center;gap:30px;font-family:"Noto Sans HK";font-size:48px;font-weight:700;padding:22px 40px;border-radius:24px;background:var(--card);border:1px solid var(--line)}
+.srow .n{display:inline-grid;place-items:center;flex:none;width:64px;height:64px;border-radius:18px;background:rgba(134,180,255,.16);color:var(--blue);font-family:Inter;font-weight:800}
+.srow .en{font-family:Inter;color:#bcd4ff}
+.outro{font-family:"Noto Sans HK";font-size:72px;font-weight:900;letter-spacing:.06em}
+
+/* ---------- controls ---------- */
+#controls{position:absolute;left:0;right:0;bottom:0;padding:40px 28px 16px;background:linear-gradient(transparent,rgba(0,0,0,.78));opacity:0;transition:opacity .3s;z-index:5}
+#player.ui #controls{opacity:1}
+#bar{position:relative;height:22px;cursor:pointer;display:flex;align-items:center}
+#track{position:absolute;left:0;right:0;height:5px;border-radius:5px;background:rgba(255,255,255,.22);transition:height .15s}
+#bar:hover #track{height:8px}
+#fill{position:absolute;left:0;height:100%;border-radius:5px;background:linear-gradient(90deg,var(--blue),var(--pos))}
+#knob{position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;transform:translateX(-50%);box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.mk{position:absolute;top:0;width:3px;height:100%;background:rgba(0,0,0,.6)}
+#tipbox{position:absolute;bottom:30px;transform:translateX(-50%);background:rgba(10,14,28,.95);border:1px solid var(--line);padding:6px 12px;border-radius:8px;font-size:13px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s}
+#bar:hover #tipbox{opacity:1}
+.crow{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:14px}
+.cbtn{width:42px;height:42px;border:0;background:transparent;border-radius:10px;display:grid;place-items:center;cursor:pointer;opacity:.92}
+.cbtn:hover{background:rgba(255,255,255,.12)}
+.cbtn svg{width:24px;height:24px;fill:#fff}
+.cbtn.off{opacity:.4}
+#time{font-variant-numeric:tabular-nums;color:#dfe5f3;margin-left:8px;min-width:110px}
+#chname{flex:1;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:12px}
+#settings{position:absolute;right:24px;bottom:96px;width:330px;background:rgba(12,16,30,.97);border:1px solid var(--line);border-radius:14px;padding:16px;z-index:6;font-size:14px;display:none}
+#settings.open{display:block}
+#settings label{display:block;color:var(--muted);margin:10px 0 6px;font-size:12px;letter-spacing:.08em}
+#settings select{width:100%;background:#1a2036;color:#fff;border:1px solid var(--line);border-radius:8px;padding:8px}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;padding:7px 0;border-radius:8px;border:1px solid var(--line);background:#1a2036;cursor:pointer}
+.seg button.on{background:var(--blue);color:#0a1020;font-weight:700;border-color:var(--blue)}
+#vnote{color:var(--muted);font-size:12px;line-height:1.5;margin-top:8px}
+
+.overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;z-index:8;
+  background:radial-gradient(ellipse at center,rgba(8,12,26,.6),rgba(3,5,12,.94));text-align:center;padding:16px}
+.overlay.hide{display:none}
+.ov-k{font-size:clamp(11px,1.4vw,16px);letter-spacing:.3em;color:var(--blue);font-weight:700}
+.ov-t{font-size:clamp(28px,5vw,64px);font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.ov-z{font-family:"Noto Sans HK";font-size:clamp(16px,2.2vw,28px);color:var(--muted);letter-spacing:.1em}
+.bigplay{width:clamp(76px,9vw,120px);height:clamp(76px,9vw,120px);border-radius:50%;border:0;cursor:pointer;background:linear-gradient(135deg,var(--blue),var(--pos));
+  display:grid;place-items:center;box-shadow:0 10px 50px rgba(62,224,168,.35);transition:transform .2s}
+.bigplay:hover{transform:scale(1.06)}
+.bigplay svg{width:42%;height:42%;fill:#06101c;margin-left:6%}
+.ov-v{font-size:clamp(12px,1.3vw,15px);color:var(--muted);max-width:640px;line-height:1.6}
+.ov-v b{color:#dfe5f3}
+.ov-keys{font-size:12px;color:rgba(255,255,255,.4)}
+.ov-sum{font-family:"Noto Sans HK";font-size:clamp(15px,2vw,24px);line-height:1.8;color:#dfe5f3}
+</style>
+</head>
+<body>
+<div id="player">
+  <div id="stage">
+    <div id="layer"></div>
+    <div id="hud"><span class="no" id="hudNo">01</span><span class="nm" id="hudNm"></span></div>
+    <div id="brand">S.1 MATHS · 2.3</div>
+    <div id="think">
+      <svg viewBox="0 0 170 170"><circle cx="85" cy="85" r="74" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="10"/>
+        <circle id="thinkArc" cx="85" cy="85" r="74" fill="none" stroke="#ffcf6b" stroke-width="10" stroke-linecap="round" stroke-dasharray="465" stroke-dashoffset="0"/></svg>
+      <div class="num" id="thinkNum">5</div><div class="cap">諗吓先</div>
+    </div>
+    <div id="sub" class="empty"></div>
+  </div>
+
+  <div class="overlay" id="startOv">
+    <div class="ov-k">S.1 MATHEMATICS · 2.3</div>
+    <div class="ov-t">Multiplication &amp; Division<br>of Directed Numbers</div>
+    <div class="ov-z">有向數嘅乘法同除法 · 教學影片</div>
+    <button class="bigplay" id="startBtn" aria-label="Play"><svg viewBox="0 0 24 24"><path d="M6 4l15 8-15 8z"/></svg></button>
+    <div class="ov-v" id="voiceInfo">檢查緊旁白聲音…</div>
+    <div class="ov-keys">Space 播放／暫停 · ← → 上一句／下一句 · F 全螢幕 · C 字幕</div>
+  </div>
+  <div class="overlay hide" id="endOv">
+    <div class="ov-k">COMPLETE · 完成</div>
+    <div class="ov-t">先 SIGN，再 NUMBER</div>
+    <div class="ov-sum">負號 even 個 → <span class="pos">positive</span> · 負號 odd 個 → <span class="neg">negative</span><br>Brackets 先 · 然後 left to right · 前面嘅負號都要數</div>
+    <button class="bigplay" id="againBtn" aria-label="Replay"><svg viewBox="0 0 24 24" style="margin:0"><path d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg></button>
+  </div>
+
+  <div id="controls">
+    <div id="bar"><div id="track"><div id="fill"></div></div><div id="marks"></div><div id="knob"></div><div id="tipbox"></div></div>
+    <div class="crow">
+      <button class="cbtn" id="bPlay" title="Play / Pause (Space)"><svg viewBox="0 0 24 24" id="icPlay"><path d="M7 4l13 8-13 8z"/></svg></button>
+      <button class="cbtn" id="bPrev" title="上一句 (←)"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+      <button class="cbtn" id="bNext" title="下一句 (→)"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+      <button class="cbtn" id="bReplay" title="Replay"><svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg></button>
+      <span id="time">00:00 / 00:00</span>
+      <span id="chname"></span>
+      <button class="cbtn" id="bCC" title="字幕 (C)"><svg viewBox="0 0 24 24"><path d="M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-8 7H9.5v-.5h-2v3h2V13H11v1a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1zm7 0h-1.5v-.5h-2v3h2V13H18v1a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1z"/></svg></button>
+      <button class="cbtn" id="bSet" title="設定"><svg viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1L11 21h4l.4-2.9a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5A3.5 3.5 0 1 1 13 8.5a3.5 3.5 0 0 1 0 7z"/></svg></button>
+      <button class="cbtn" id="bFS" title="全螢幕 (F)"><svg viewBox="0 0 24 24"><path d="M5 5h5V3H3v7h2zm9-2v2h5v5h2V3zm5 16h-5v2h7v-7h-2zM5 14H3v7h7v-2H5z"/></svg></button>
+    </div>
+  </div>
+  <div id="settings">
+    <label>旁白聲音 VOICE</label>
+    <select id="voiceSel"></select>
+    <div id="vnote"></div>
+    <label>速度 SPEED</label>
+    <div class="seg" id="speedSeg"><button data-v="0.85">0.85×</button><button data-v="1" class="on">1×</button><button data-v="1.15">1.15×</button></div>
+    <label>音效 SOUND FX</label>
+    <div class="seg" id="sfxSeg"><button data-v="1" class="on">On</button><button data-v="0">Off</button></div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   1. CONTENT HELPERS
+   ===================================================================== */
+const M = '−';
+const sg = (s, k) => `<span class="sg ${s === '+' ? 'pos' : 'neg'}"${k ? ` k="${k}"` : ''}>${s === '+' ? '+' : M}</span>`;
+const badge = b => b ? `<span class="badge" k="${b[0]}" h>${b[1]}</span>` : '';
+const dn = (v, k, b) => `<span class="dn"${k ? ` k="${k}"` : ''}>(${sg(v[0], k ? k + 's' : null)}${v.slice(1)})${badge(b)}</span>`;
+const fr = (a, b, cls) => `<span class="frac${cls ? ' ' + cls : ''}"><span>${a}</span><span>${b}</span></span>`;
+const sf = (s, a, b, k, bd) => `<span class="dn"${k ? ` k="${k}"` : ''}><span class="bp">(</span>${sg(s, k ? k + 's' : null)}${fr(a, b)}<span class="bp">)</span>${badge(bd)}</span>`;
+const X = '<span class="op">×</span>', D = '<span class="op">÷</span>', EQ = '<span class="op">=</span>';
+const res = (k, v, cls) => `<span class="res" k="${k}" h>${EQ}<span class="${cls}">${v}</span></span>`;
+const cx = (v, r, k, dnm) => `<span class="cx${dnm ? ' dnm' : ''}" k="${k}" data-r="${r}">${v}</span>`;
+const chip = (s, big) => `<span class="chip ${s === '+' ? 'pos' : 'neg'}${big ? ' big' : ''}">${s === '+' ? '+' : M}</span>`;
+const builder = p => `<div class="builder"><div class="bslot"><div class="blab"><b>1</b>SIGN</div><div class="bval bsign" k="${p}s">?</div></div><div class="bplus">→</div><div class="bslot"><div class="blab"><b>2</b>NUMBER</div><div class="bval bnum" k="${p}n">?</div></div></div>`;
+const stepcard = (n, big, zh, kind) => `<div class="stepcard ${kind}"><div class="stepno">STEP ${n}</div><div class="stepbig">${big}</div><div class="stepzh">${zh}</div></div>`;
+const hint = `<div class="hint"><span class="pill s">① SIGN</span>→<span class="pill n">② NUMBER</span></div>`;
+// builder state shortcuts
+const SP = p => ({ set: `${p}s.+pos`, mv: { [p + 's']: '+' } });
+const SN = p => ({ set: `${p}s.+neg`, mv: { [p + 's']: M } });
+const NUM = (p, v) => ({ set: `${p}n.+on`, mv: { [p + 'n']: v } });
+const RST = p => ({ set: `${p}s.-pos ${p}s.-neg ${p}n.-on`, mv: { [p + 's']: '?', [p + 'n']: '?' } });
+// merge several {set,mv} pieces + extra fields into one cue
+const C = (base, ...parts) => {
+  const c = { ...base }; const sets = [].concat(base.set || []); const mvs = [].concat(base.mv || []);
+  parts.forEach(p => { if (p.set) sets.push(p.set); if (p.mv) mvs.push(p.mv); });
+  c.set = sets; c.mv = mvs; return c;
+};
+const ARROW = `<svg width="560" height="200" viewBox="0 0 560 200"><path d="M30 100 H470" stroke="currentColor" stroke-width="26" stroke-linecap="round"/><path d="M405 32 L525 100 L405 168" fill="none" stroke="currentColor" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const prow = (i, a, r) => `<div class="prow" k="r${i}" h><span class="pm" k="m${i}" h>${i > 1 ? M + '1' : ''}</span><span>${a}</span><span class="op">×</span><span>(${M}2)</span><span class="op">=</span><span class="pr" k="v${i}">${r}</span><span class="pp" k="p${i}" h>${i > 1 ? '+2' : ''}</span></div>`;
+const cell = (k, a, b, r) => `<div class="cell" k="${k}" h>${chip(a)}<span class="op">×</span>${chip(b)}<span class="op">=</span>${chip(r)}</div>`;
+const qrow = (i, e, s, a) => `<div class="qrow" k="q${i}" h><span>${e}</span><span class="chip ${s === '+' ? 'pos' : 'neg'}" k="s${i}" h>${s === '+' ? '+' : M}</span><span class="qans" k="a${i}" h>= <span class="${s === '+' ? 'pos' : 'neg'}">${a}</span></span></div>`;
+const front = (k, b, tip) => `<span class="dn"><span class="sg neg front" k="${k}">${M}</span>${tip ? `<span class="tip" k="${tip}" h>最易漏！</span>` : ''}${badge(b)}</span>`;
+const mrow = (i, w, f, why) => `<div class="mrow" k="r${i}" h><span class="mno">${i}</span><span class="mw">${w}</span><span class="mf" k="f${i}" h>✓ ${f}</span><span class="mwhy" k="y${i}" h>${why}</span></div>`;
+
+/* =====================================================================
+   2. LESSON SCRIPT — scenes → cues (narration = subtitle)
+   Each cue: sub (subtitle, also spoken), say (optional speech override),
+   set/mv (stage state changes), at (timed sub-steps), think (silent pause sec)
+   ===================================================================== */
+const SCENES = [
+/* ---------------- 00 INTRO ---------------- */
+{ ch: '開場：今日學咩', els: [
+  { k: 'title', x: 960, y: 420, html: `<div class="titleblk"><div class="kicker">S.1 MATHEMATICS · 2.3</div><div class="h1">Multiplication &amp; Division</div><div class="h1 sub2">of Directed Numbers</div><div class="zhline">有向數嘅乘法 同 除法</div></div>` },
+  { k: 'ex1', x: 560, y: 780, html: `<div class="eq md ghosty">${dn('-3')}${X}${dn('-6')}</div>` },
+  { k: 'ex2', x: 1360, y: 780, html: `<div class="eq md ghosty">${dn('+24')}${D}${dn('-3')}</div>` },
+  { k: 'st1', x: 620, y: 650, html: stepcard(1, 'SIGN', '先決定 + 定 −', 'sign') },
+  { k: 'arr', x: 960, y: 650, html: `<div class="bigarrow">→</div>` },
+  { k: 'st2', x: 1300, y: 650, html: stepcard(2, 'NUMBER', '再計個數', 'num') },
+ ], cues: [
+  { sub: '今日我哋學有向數嘅 multiplication 同 division。', set: 'title', sfx: 'whoosh' },
+  { sub: '即係正數同負數，一齊乘、一齊除。', set: 'ex1 ex2' },
+  { sub: '成堂課其實得一個核心方法，記住佢就得。', set: '-ex1 -ex2', mv: { title: { y: 250, s: .74 } } },
+  { sub: '第一步，唔好急住計，先睇 sign。', set: 'st1', sfx: 'pop' },
+  { sub: '第二步，sign 決定咗之後，先至計個 number。', set: 'arr st2', sfx: 'pop' },
+  { sub: 'Sign 同 number 分開處理，就唔會亂。', set: 'st1.+glow st2.+glow' },
+ ]},
+
+/* ---------------- 01 WHY: pattern ---------------- */
+{ ch: '點解 負 × 負 = 正？', els: [
+  { k: 'hd', x: 960, y: 140, html: `<div class="hd">點解 <span class="neg">負</span> × <span class="neg">負</span> = <span class="pos">正</span>？<small>睇 pattern</small></div>` },
+  { k: 'tbl', x: 960, y: 530, html: `<div class="ptable">${prow(1, '3', M + '6')}${prow(2, '2', M + '4')}${prow(3, '1', M + '2')}${prow(4, '0', '0')}${prow(5, `(${M}1)`, '?')}${prow(6, `(${M}2)`, '?')}</div>` },
+ ], cues: [
+  { sub: '好多同學最唔明：點解負數乘負數，會變正數？', set: 'hd' },
+  { sub: '我哋睇一個 pattern。', set: 'tbl', min: 3.2, at: [{ t: .4, set: 'r1' }, { t: 1.0, set: 'r2' }, { t: 1.6, set: 'r3' }, { t: 2.2, set: 'r4' }] },
+  { sub: '左邊每次細 1，答案就每次大 2。', at: [{ t: .3, set: 'm2 m3 m4' }, { t: 1.6, set: 'p2 p3 p4', sfx: 'pop' }] },
+  { sub: '咁跟住落去，(−1) × (−2) 應該係幾多？', set: 'r5 m5' },
+  { think: 3 },
+  { sub: '上一行係 0，再大 2，就係 positive 2。', set: 'p5 v5.+pos', mv: { v5: '+2' }, sfx: 'ding' },
+  { sub: '再落一行，(−2) × (−2)，就係 positive 4。', set: 'r6 m6', at: [{ t: 1.4, set: 'p6 v6.+pos', mv: { v6: '+4' }, sfx: 'pop' }] },
+  { sub: '所以 negative 乘 negative，一定係 positive。', set: 'r5.+good r6.+good' },
+ ]},
+
+/* ---------------- 01b memory: flip ---------------- */
+{ els: [
+  { k: 'hd', x: 960, y: 140, html: `<div class="hd">記憶法：負號 = <span class="acc">掉頭</span></div>` },
+  { k: 'arw', x: 960, y: 450, html: `<div class="arrowbox" k="ab">${ARROW}</div>` },
+  { k: 'lab', x: 960, y: 680, html: `<div class="lab" k="lt">正數：向前</div>` },
+  { k: 'eqs', x: 960, y: 800, html: `<div class="eq md">${chip('-')}${X}${chip('-')}${EQ}${chip('+')}</div>` },
+ ], cues: [
+  { sub: '仲有一個更易記嘅諗法。', set: 'hd arw lab' },
+  { sub: '將每一個 negative sign，諗成「掉頭」。' },
+  { sub: '掉頭一次，就向咗反方向，即係 negative。', set: 'ab.+neg lt.+neg', mv: { arw: { r: 180 }, lt: '掉頭 1 次 → negative' }, sfx: 'whoosh' },
+  { sub: '再掉頭多一次，又轉返正，即係 positive。', set: 'ab.-neg lt.-neg', mv: { arw: { r: 360 }, lt: '掉頭 2 次 → positive' }, sfx: 'whoosh' },
+  { sub: '兩個負號，掉頭兩次，返返原本方向。', set: 'eqs', sfx: 'ding' },
+ ]},
+
+/* ---------------- 02 two-number sign rule ---------------- */
+{ ch: 'Sign Rule：兩個數', els: [
+  { k: 'grid', x: 960, y: 420, html: `<div class="g2">${cell('c1', '+', '+', '+')}${cell('c2', '-', '-', '+')}<div class="glab pos" k="L1" h>same signs → <b>positive</b></div>${cell('c3', '+', '-', '-')}${cell('c4', '-', '+', '-')}<div class="glab neg" k="L2" h>different signs → <b>negative</b></div></div>` },
+  { k: 'ban', x: 960, y: 760, html: `<div class="banner"><span>同號得<span class="pos">正</span></span><span class="mut">·</span><span>異號得<span class="neg">負</span></span></div>` },
+ ], cues: [
+  { sub: '兩個數相乘，sign 只有四種情況。', set: 'grid' },
+  { sub: '正乘正，正。負乘負，都係正。', at: [{ t: .2, set: 'c1', sfx: 'pop' }, { t: 1.6, set: 'c2', sfx: 'pop' }] },
+  { sub: '兩個 sign 一樣，same signs，所以答案一定係 positive。', set: 'L1' },
+  { sub: '正乘負，負。負乘正，都係負。', at: [{ t: .2, set: 'c3', sfx: 'pop' }, { t: 1.6, set: 'c4', sfx: 'pop' }] },
+  { sub: '兩個 sign 唔同，different signs，答案一定係 negative。', set: 'L2' },
+  { sub: '一句講晒：同號得正，異號得負。', set: 'ban', sfx: 'ding' },
+ ]},
+
+/* ---------------- 02b worked examples ---------------- */
+{ els: [
+  { k: 'q', x: 960, y: 250, html: `<div class="eq">${dn('-18', 'x1')}${X}${dn('-4', 'x2')}${res('res', '72', 'pos')}</div>` },
+  { k: 'q2', x: 960, y: 250, html: `<div class="eq">${dn('+14', 'y1')}<span class="op ghost" k="gx" h>×</span>${dn('-4', 'y2')}${res('res2', M + '56', 'neg')}</div>` },
+  { k: 'bld', x: 700, y: 610, html: builder('b1') },
+  { k: 'calc', x: 1340, y: 640, html: `<div class="calc"><span class="lbl">NUMBER</span>18 × 4 = 72</div>` },
+  { k: 'calc2', x: 1340, y: 640, html: `<div class="calc"><span class="lbl">NUMBER</span>14 × 4 = 56</div>` },
+ ], cues: [
+  { sub: '用兩步法試吓：(−18) × (−4)。', set: 'q bld' },
+  { sub: '第一步，先睇 sign：負同負，same signs。', set: 'x1s.+ring x2s.+ring' },
+  C({ sub: '所以答案係 positive，先寫個正號。', sfx: 'pop' }, SP('b1')),
+  { sub: '第二步，先至計 number：18 × 4 = 72。', set: 'calc', at: [{ t: 2.2, ...NUM('b1', '72'), sfx: 'pop' }] },
+  { sub: '答案係 72。正數前面個正號，可以唔寫。', set: 'res', sfx: 'ding' },
+  C({ sub: '下一題：(+14)(−4)。', set: '-q -calc q2' }, RST('b1')),
+  { sub: '留意，兩個括號中間冇符號，即係乘。', set: 'gx gx.+pulse' },
+  C({ sub: 'Sign：一正一負，different signs，所以係 negative。', set: 'gx.-pulse y1s.+ring y2s.+ring', sfx: 'pop' }, SN('b1')),
+  C({ sub: 'Number：14 × 4 = 56。答案係 −56。', set: 'calc2 res2', sfx: 'ding' }, NUM('b1', '56')),
+  { sub: 'Negative 嘅負號一定要寫，唔可以漏！', set: 'res2.+pulse' },
+ ]},
+
+/* ---------------- 03 practice: sign only ---------------- */
+{ ch: '練習 ①：快速判斷 sign', els: [
+  { k: 'hd', x: 960, y: 140, html: `<div class="hd">熱身：只判斷 <span class="acc">SIGN</span><small>唔使計數</small></div>` },
+  { k: 'list', x: 960, y: 530, html: `<div class="qlist">${qrow(1, `${dn('+9')}${dn('+21')}`, '+', '189')}${qrow(2, `${dn('-10')} × ${dn('-10')}`, '+', '100')}${qrow(3, `${dn('-9')} × ${dn('+7')}`, '-', M + '63')}${qrow(4, `${dn('+8')}${dn('-25')}`, '-', M + '200')}</div>` },
+ ], cues: [
+  { sub: '熱身：淨係判斷 sign，唔使計數。', set: 'hd list' },
+  { sub: '第一題：(+9)(+21)。', set: 'q1' }, { think: 2.5 },
+  { sub: '同號，positive。', set: 's1', sfx: 'ding' },
+  { sub: '(−10) × (−10)。', set: 'q2' }, { think: 2.5 },
+  { sub: '負同負，同號，positive。', set: 's2', sfx: 'ding' },
+  { sub: '(−9) × (+7)。', set: 'q3' }, { think: 2.5 },
+  { sub: '一正一負，異號，negative。', set: 's3', sfx: 'ding' },
+  { sub: '(+8)(−25)。', set: 'q4' }, { think: 2.5 },
+  { sub: '異號，negative。', set: 's4', sfx: 'ding' },
+  { sub: 'Sign 搞掂，再計埋 number，就係完整答案。', at: [{ t: .3, set: 'a1' }, { t: .9, set: 'a2' }, { t: 1.5, set: 'a3' }, { t: 2.1, set: 'a4' }] },
+ ]},
+
+/* ---------------- 04 division ---------------- */
+{ ch: 'Division：sign rule 一樣', els: [
+  { k: 'hd', x: 960, y: 140, html: `<div class="hd">÷ 嘅 sign rule ＝ × 嘅 sign rule</div>` },
+  { k: 'd1', x: 960, y: 330, html: `<div class="eq md">${dn('-24', 'p1')}${D}${dn('-3', 'p2')}${res('r1', '8', 'pos')}<span class="tag p" k="t1" h>same signs</span></div>` },
+  { k: 'd2', x: 960, y: 500, html: `<div class="eq md">${dn('+24', 'q1')}${D}${dn('-3', 'q2')}${res('r2', M + '8', 'neg')}<span class="tag n" k="t2" h>different signs</span></div>` },
+  { k: 'cmp', x: 960, y: 680, html: `<div class="banner"><span>× 同 ÷</span><span class="mut">:</span><span>同號得<span class="pos">正</span></span><span class="mut">·</span><span>異號得<span class="neg">負</span></span></div>` },
+  { k: 'terms', x: 960, y: 810, html: `<div class="hint" style="letter-spacing:.02em"><span class="pill s">product = 乘出嚟嘅答案</span><span class="pill n">quotient = 除出嚟嘅答案</span></div>` },
+ ], cues: [
+  { sub: '去到 division，有個好消息。', set: 'hd' },
+  { sub: '佢個 sign rule，同 multiplication 完全一樣。' },
+  { sub: '同號相除，答案係 positive：(−24) ÷ (−3) = 8。', set: 'd1 p1s.+ring p2s.+ring', at: [{ t: 2.4, set: 'r1 t1', sfx: 'pop' }] },
+  { sub: '異號相除，答案係 negative：(+24) ÷ (−3) = −8。', set: 'd2 q1s.+ring q2s.+ring', at: [{ t: 2.4, set: 'r2 t2', sfx: 'pop' }] },
+  { sub: '記住，multiplication 同 division 個 sign rule 其實係一樣。', set: 'cmp', sfx: 'ding' },
+  { sub: '乘法嘅答案叫 product，除法嘅答案叫 quotient。', set: 'terms' },
+ ]},
+
+/* ---------------- 04b fraction bar ---------------- */
+{ els: [
+  { k: 'hd', x: 960, y: 140, html: `<div class="hd">分數線 ＝ 除號</div>` },
+  { k: 'f', x: 560, y: 380, html: `<div class="eq">${fr(sg('-', 'fs1') + '220', sg('-', 'fs2') + '55', 'big')}</div>` },
+  { k: 'eqv', x: 1260, y: 380, html: `<div class="eq md">${EQ}${dn('-220')}${D}${dn('-55')}</div>` },
+  { k: 'bld', x: 700, y: 700, html: builder('b2') },
+  { k: 'ans', x: 1330, y: 720, html: `<div class="calc"><span class="lbl">NUMBER</span>220 ÷ 55 = 4</div>` },
+ ], cues: [
+  { sub: '仲有，分數線其實就係除號。', set: 'hd f' },
+  { sub: '−220 over −55，即係 (−220) ÷ (−55)。', say: '負220 over 負55，即係 負220 除以 負55。', set: 'eqv' },
+  C({ sub: '上面負，下面負，same signs，所以係 positive。', set: 'bld fs1.+ring fs2.+ring', sfx: 'pop' }, SP('b2')),
+  C({ sub: '220 ÷ 55 = 4。答案係 4。', set: 'ans', sfx: 'ding' }, NUM('b2', '4')),
+ ]},
+
+/* ---------------- 05 practice division ---------------- */
+{ ch: '練習 ②：Division', els: [
+  { k: 'hint', x: 960, y: 140, html: hint },
+  { k: 'qa', x: 960, y: 300, html: `<div class="eq">${dn('+112', 'u1')}${D}${dn('-7', 'u2')}${res('ra', M + '16', 'neg')}</div>` },
+  { k: 'qb', x: 960, y: 300, html: `<div class="eq">${fr(sg('+', 'v1') + '156', sg('-', 'v2') + '12', 'big')}${res('rb', M + '13', 'neg')}</div>` },
+  { k: 'qc', x: 960, y: 300, html: `<div class="eq">${dn('-45', 'w1')}${D}${dn('-9', 'w2')}${res('rc', '5', 'pos')}</div>` },
+  { k: 'bld', x: 960, y: 670, html: builder('b3') },
+ ], cues: [
+  { sub: '到你試。(+112) ÷ (−7)。先 sign，再 number。', set: 'hint qa bld' },
+  { think: 5 },
+  C({ sub: '異號，negative。', set: 'u1s.+ring u2s.+ring', sfx: 'pop' }, SN('b3')),
+  C({ sub: '112 ÷ 7 = 16。答案 −16。', set: 'ra', sfx: 'ding' }, NUM('b3', '16')),
+  C({ sub: '下一題：+156 over −12。', say: '下一題：正156 over 負12。', set: '-qa qb' }, RST('b3')),
+  { think: 5 },
+  C({ sub: '上正下負，異號，negative。', set: 'v1.+ring v2.+ring', sfx: 'pop' }, SN('b3')),
+  C({ sub: '156 ÷ 12 = 13。答案 −13。', set: 'rb', sfx: 'ding' }, NUM('b3', '13')),
+  C({ sub: '最後一題：(−45) ÷ (−9)。', set: '-qb qc' }, RST('b3')),
+  { think: 4 },
+  C({ sub: '同號，positive。45 ÷ 9 = 5，答案 5。', set: 'w1s.+ring w2s.+ring', at: [{ t: 2.2, set: 'rc', sfx: 'ding' }] }, SP('b3'), NUM('b3', '5')),
+ ]},
+
+/* ---------------- 06 many numbers ---------------- */
+{ ch: '多個數：數負號', els: [
+  { k: 'q', x: 960, y: 250, html: `<div class="eq">${dn('+5', 'm1')}${X}${dn('-5', 'm2', ['c1', 1])}${X}${dn('-14', 'm3', ['c2', 2])}${res('res', '350', 'pos')}</div>` },
+  { k: 'cnt', x: 960, y: 430, html: `<div class="hd" style="font-size:50px">負號數目：<span class="acc">2 個</span> → <span class="pos">even 雙數</span></div>` },
+  { k: 'bld', x: 700, y: 680, html: builder('b4') },
+  { k: 'calc', x: 1340, y: 700, html: `<div class="calc"><span class="lbl">NUMBER</span>5 × 5 × 14 = 350</div>` },
+ ], cues: [
+  { sub: '如果唔止兩個數呢？例如 (+5) × (−5) × (−14)。', set: 'q' },
+  { sub: '你可以兩個兩個咁計，但有更快嘅方法。' },
+  { sub: '唔使諗咁多，淨係數有幾多個 negative sign。', set: 'm2s.+ring m3s.+ring', at: [{ t: 1.2, set: 'c1', sfx: 'pop' }, { t: 1.9, set: 'c2', sfx: 'pop' }] },
+  { sub: '呢度有兩個負號。2 係 even number，雙數。', set: 'cnt' },
+  C({ sub: 'Even 個負號，答案係 positive。', set: 'bld', sfx: 'pop' }, SP('b4')),
+  C({ sub: 'Number：5 × 5 × 14 = 350。答案 350。', set: 'calc', at: [{ t: 2.6, set: 'res', sfx: 'ding' }] }, NUM('b4', '350')),
+ ]},
+
+/* ---------------- 06b even / odd rule ---------------- */
+{ els: [
+  { k: 'rc', x: 960, y: 300, html: `<div class="rulecard"><div class="rline" k="e1" h>負號 <span class="k">even</span> 個（雙數）→ ${chip('+')} <span class="pos">positive</span></div><div class="rline" k="e2" h>負號 <span class="k">odd</span> 個（單數）→ ${chip('-')} <span class="neg">negative</span></div></div>` },
+  { k: 'pair', x: 960, y: 640, html: `<div class="pairrow"><span class="pairwrap"><span class="chip neg big" k="k1">${M}</span><span class="chip neg big" k="k2">${M}</span><span class="grp" k="grp" h>一對抵消 → +</span></span><span class="chip neg big" k="k3">${M}</span><span class="arrowto" k="fin" h>→ ${chip('-', true)}</span></div>` },
+ ], cues: [
+  { sub: '記住呢條規則。', set: 'rc' },
+  { sub: '負號有 even 個，雙數，答案係 positive。', set: 'e1', sfx: 'pop' },
+  { sub: '負號有 odd 個，單數，答案係 negative。', set: 'e2', sfx: 'pop' },
+  { sub: '原因好簡單：每兩個負號會互相抵消，變返正。', set: 'pair', at: [{ t: 2.2, set: 'grp k1.+dim k2.+dim', sfx: 'whoosh' }] },
+  { sub: '三個負號，抵消咗一對，仲剩一個，所以係 negative。', set: 'k3.+pulse', at: [{ t: 2.6, set: 'fin', sfx: 'ding' }] },
+  { sub: '正數完全唔影響 sign，唔使數佢。', set: 'k3.-pulse' },
+ ]},
+
+/* ---------------- 06c practice many ---------------- */
+{ els: [
+  { k: 'q', x: 960, y: 260, html: `<div class="eq">${dn('-3', 'a1', ['c1', 1])}${X}${dn('-8', 'a2', ['c2', 2])}${X}${dn('-6', 'a3', ['c3', 3])}${res('ra', M + '144', 'neg')}</div>` },
+  { k: 'q2', x: 960, y: 260, html: `<div class="eq">${dn('-12', 'b1', ['d1', 1])}${dn('-3', 'b2', ['d2', 2])}${dn('+5', 'b3')}${res('rb', '180', 'pos')}</div>` },
+  { k: 'bld', x: 700, y: 650, html: builder('b5') },
+  { k: 'ca', x: 1340, y: 670, html: `<div class="calc"><span class="lbl">NUMBER</span>3 × 8 × 6 = 144</div>` },
+  { k: 'cb', x: 1340, y: 670, html: `<div class="calc"><span class="lbl">NUMBER</span>12 × 3 × 5 = 180</div>` },
+ ], cues: [
+  { sub: '試吓：(−3) × (−8) × (−6)。有幾多個負號？', set: 'q bld' },
+  { think: 3 },
+  C({ sub: '三個，odd，所以係 negative。', at: [{ t: .1, set: 'c1' }, { t: .4, set: 'c2' }, { t: .7, set: 'c3', sfx: 'pop' }] }, SN('b5')),
+  C({ sub: '3 × 8 × 6 = 144。答案 −144。', set: 'ca', at: [{ t: 2.4, set: 'ra', sfx: 'ding' }] }, NUM('b5', '144')),
+  C({ sub: '再嚟：(−12)(−3)(+5)。', set: '-q -ca q2' }, RST('b5')),
+  { think: 3 },
+  C({ sub: '兩個負號，even，positive。', at: [{ t: .1, set: 'd1' }, { t: .4, set: 'd2', sfx: 'pop' }] }, SP('b5')),
+  C({ sub: '12 × 3 × 5 = 180。答案 180。', set: 'cb', at: [{ t: 2.4, set: 'rb', sfx: 'ding' }] }, NUM('b5', '180')),
+ ]},
+
+/* ---------------- 07 leading negative ---------------- */
+{ ch: '陷阱：最前面嘅負號', els: [
+  { k: 'q', x: 960, y: 250, html: `<div class="eq">${front('fm', ['t1', 1], 'tip')}${dn('+11', 'n1')}${dn('-16', 'n2', ['t2', 2])}${res('res', '176', 'pos')}</div>` },
+  { k: 'tr', x: 960, y: 430, html: `<div class="eq md">${EQ}${dn('-1', 'w1')}${X}${dn('+11')}${X}${dn('-16')}</div>` },
+  { k: 'bld', x: 700, y: 690, html: builder('b6') },
+  { k: 'calc', x: 1340, y: 710, html: `<div class="calc"><span class="lbl">NUMBER</span>11 × 16 = 176</div>` },
+ ], cues: [
+  { sub: '再嚟一個陷阱：−(+11)(−16)。', say: '再嚟一個陷阱：負，正11，乘 負16。', set: 'q' },
+  { sub: '好多人只睇括號入面，漏咗最前面嗰個負號。', set: 'fm.+pulse tip' },
+  { sub: '其實最前面嘅負號，就等於乘 (−1)，一樣要數。', set: 'fm.-pulse fm.+ring tr w1s.+ring' },
+  { sub: '數吓：前面一個，(−16) 一個，總共兩個，even。', at: [{ t: .5, set: 't1', sfx: 'pop' }, { t: 1.7, set: 't2 n2s.+ring', sfx: 'pop' }] },
+  C({ sub: '所以係 positive。', set: 'bld', sfx: 'pop' }, SP('b6')),
+  C({ sub: '11 × 16 = 176。答案 176。', set: 'calc', at: [{ t: 2.2, set: 'res', sfx: 'ding' }] }, NUM('b6', '176')),
+ ]},
+{ els: [
+  { k: 'q', x: 960, y: 260, html: `<div class="eq">${front('fm', ['t1', 1])}${dn('-17', 'n1', ['t2', 2])}${dn('-20', 'n2', ['t3', 3])}${res('res', M + '340', 'neg')}</div>` },
+  { k: 'bld', x: 700, y: 650, html: builder('b7') },
+  { k: 'calc', x: 1340, y: 670, html: `<div class="calc"><span class="lbl">NUMBER</span>17 × 20 = 340</div>` },
+ ], cues: [
+  { sub: '到你：−(−17)(−20)。數負號。', say: '到你：負，負17，乘 負20。數負號。', set: 'q bld' },
+  { think: 4 },
+  C({ sub: '前面一個，入面兩個，總共三個，odd，negative。', at: [{ t: .4, set: 't1 fm.+ring', sfx: 'pop' }, { t: 1.4, set: 't2 t3', sfx: 'pop' }] }, SN('b7')),
+  C({ sub: '17 × 20 = 340。答案 −340。', set: 'calc', at: [{ t: 2.2, set: 'res', sfx: 'ding' }] }, NUM('b7', '340')),
+  { sub: '記住：最前面嗰個負號，都係一個負號！', set: 'fm.+pulse' },
+ ]},
+
+/* ---------------- 08 fractions ---------------- */
+{ ch: '分數 同 小數', els: [
+  { k: 'q', x: 960, y: 260, html: `<div class="eq">${sf('-', 3, 5, 'f1')}${X}${dn('+15', 'f2')}${res('ra', M + '9', 'neg')}</div>` },
+  { k: 'q2', x: 960, y: 260, html: `<div class="eq">${dn('-8', 'g1', ['h1', 1])}${sf('-', 2, 3, 'g2', ['h2', 2])}${sf('-', 1, 4, 'g3', ['h3', 3])}${res('rb', M + fr(4, 3), 'neg')}</div>` },
+  { k: 'bld', x: 640, y: 680, html: builder('b8') },
+  { k: 'ca', x: 1330, y: 690, html: `<div class="eq md">${fr('3', cx('5', '1', 'x1', true))}${X}${cx('15', '3', 'x2')}<span class="res" k="xe" h>${EQ}9</span></div>` },
+  { k: 'cb', x: 1330, y: 690, html: `<div class="eq md">${cx('8', '2', 'z1')}${X}${fr(2, 3)}${X}${fr(1, cx('4', '1', 'z2', true))}<span class="res" k="ze" h>${EQ}${fr(4, 3)}</span></div>` },
+ ], cues: [
+  { sub: '分數同小數，方法完全一樣：先 sign，再 number。', set: 'q' },
+  C({ sub: '(−3/5) × (+15)：一個負號，odd，negative。', set: 'bld f1s.+ring', sfx: 'pop' }, SN('b8')),
+  { sub: 'Number：15 同 5 可以約簡，15 變 3，5 變 1。', set: 'ca', at: [{ t: 1.8, set: 'x1.+x x2.+x', sfx: 'pop' }] },
+  C({ sub: '3 × 3 = 9。答案 −9。', set: 'xe', at: [{ t: 1.4, set: 'ra', sfx: 'ding' }] }, NUM('b8', '9')),
+  C({ sub: '再嚟：(−8)(−2/3)(−1/4)。', set: '-q -ca q2' }, RST('b8')),
+  C({ sub: '三個負號，odd，negative。', at: [{ t: .1, set: 'h1' }, { t: .4, set: 'h2' }, { t: .7, set: 'h3', sfx: 'pop' }] }, SN('b8')),
+  { sub: '8 同 4 約簡，8 變 2，4 變 1。', set: 'cb', at: [{ t: 1.4, set: 'z1.+x z2.+x', sfx: 'pop' }] },
+  C({ sub: '分子 2 × 2 = 4，分母係 3。答案係 −4/3。', set: 'ze', at: [{ t: 3, set: 'rb', sfx: 'ding' }] }, NUM('b8', fr(4, 3))),
+ ]},
+{ els: [
+  { k: 'q', x: 960, y: 240, html: `<div class="eq">${dn('-3', 'e1', ['j1', 1])}${X}${dn('+2.5', 'e2')}${X}${sf('-', 4, 5, 'e3', ['j2', 2])}${res('ra', '6', 'pos')}</div>` },
+  { k: 'conv', x: 960, y: 420, html: `<div class="eq sm"><span class="acc">2.5</span>${EQ}<span class="acc">${fr(5, 2)}</span></div>` },
+  { k: 'bld', x: 640, y: 690, html: builder('b9') },
+  { k: 'ca', x: 1340, y: 700, html: `<div class="eq md">3${X}${fr(cx('5', '1', 'k1'), cx('2', '1', 'k2', true))}${X}${fr(cx('4', '2', 'k3'), cx('5', '1', 'k4', true))}<span class="res" k="ke" h>${EQ}6</span></div>` },
+ ], cues: [
+  { sub: '有小數又有分數點算？例如 (−3) × (+2.5) × (−4/5)。', set: 'q' },
+  C({ sub: '照樣先定 sign：兩個負號，even，positive。', set: 'bld', at: [{ t: 1.4, set: 'j1' }, { t: 1.8, set: 'j2', sfx: 'pop' }] }, SP('b9')),
+  { sub: '小數同分數一齊，將 2.5 變做分數，即係 5/2。', set: 'conv e2s.+ring' },
+  { sub: '然後約簡：5 同 5 約，4 同 2 約。', set: 'ca', at: [{ t: 1.2, set: 'k1.+x k4.+x', sfx: 'pop' }, { t: 2.4, set: 'k3.+x k2.+x', sfx: 'pop' }] },
+  C({ sub: '剩低 3 × 2 = 6。答案係 6。', set: 'ke', at: [{ t: 1.8, set: 'ra', sfx: 'ding' }] }, NUM('b9', '6')),
+ ]},
+
+/* ---------------- 09 continuous division ---------------- */
+{ ch: '連續除法：Left to Right', els: [
+  { k: 'q', x: 960, y: 230, html: `<div class="eq">${dn('+216', 'a1')}${D}${dn('-3', 'a2', ['c1', 1])}${D}${dn('-8', 'a3', ['c2', 2])}${res('ra', '9', 'pos')}</div>` },
+  { k: 'lr', x: 960, y: 350, html: `<div class="lr"><span>LEFT TO RIGHT</span><div class="lrline"></div></div>` },
+  { k: 'bld', x: 600, y: 660, html: builder('ba') },
+  { k: 'st', x: 1320, y: 660, html: `<div class="steps"><div class="sline" k="l1" h><span class="no">1</span>216 ÷ 3 = <span class="acc">72</span></div><div class="sline" k="l2" h><span class="no">2</span><span class="acc">72</span> ÷ 8 = 9</div></div>` },
+ ], cues: [
+  { sub: '連續除法，例如 (+216) ÷ (−3) ÷ (−8)。', set: 'q' },
+  C({ sub: 'Sign 照樣數負號：兩個，even，positive。', set: 'bld', at: [{ t: 1.4, set: 'c1' }, { t: 1.8, set: 'c2', sfx: 'pop' }] }, SP('ba')),
+  { sub: 'Number 就要小心：一定要由左至右，left to right。', set: 'lr', sfx: 'whoosh' },
+  { sub: '先計 216 ÷ 3 = 72。', set: 'st l1' },
+  C({ sub: '再計 72 ÷ 8 = 9。答案係 9。', set: 'l2', at: [{ t: 2.2, set: 'ra', sfx: 'ding' }] }, NUM('ba', '9')),
+ ]},
+{ els: [
+  { k: 'q', x: 960, y: 210, html: `<div class="eq">${dn('-400', 'a1', ['c1', 1])}${D}${dn('+5')}${D}${dn('+16')}${res('ra', M + '5', 'neg')}</div>` },
+  { k: 'wr', x: 540, y: 530, html: `<div class="card wrongc"><div class="ctitle">✗ 先計後面</div><div class="cl" k="w1" h>5 ÷ 16 = 0.3125</div><div class="cl" k="w2" h>400 ÷ 0.3125 = 1280</div></div>` },
+  { k: 'rt', x: 1380, y: 530, html: `<div class="card rightc"><div class="ctitle">✓ Left to right</div><div class="cl" k="g1" h>400 ÷ 5 = 80</div><div class="cl" k="g2" h>80 ÷ 16 = 5</div></div>` },
+  { k: 'fin', x: 960, y: 790, html: `<div class="hd" style="font-size:46px">負號 1 個 → odd → 答案 <span class="neg">${M}5</span></div>` },
+ ], cues: [
+  { sub: '再睇呢題：(−400) ÷ (+5) ÷ (+16)。', set: 'q' },
+  { sub: '如果你貪快，先計後面 5 ÷ 16，就錯晒。', set: 'wr', at: [{ t: 1.6, set: 'w1' }, { t: 2.4, set: 'w2', sfx: 'wrong' }] },
+  { sub: '正確做法：400 ÷ 5 = 80，然後 80 ÷ 16 = 5。', set: 'rt wr.+dim', at: [{ t: 1.2, set: 'g1' }, { t: 3.2, set: 'g2', sfx: 'pop' }] },
+  { sub: '一個負號，odd，所以答案係 −5。', set: 'fin c1', at: [{ t: 1.6, set: 'ra', sfx: 'ding' }] },
+  { sub: '記住：除法唔可以亂咁調次序，一定 left to right。' },
+ ]},
+
+/* ---------------- 10 brackets ---------------- */
+{ ch: 'Brackets 優先', els: [
+  { k: 'q', x: 960, y: 220, html: `<div class="eq">${dn('+56', 'a1')}${D}<span class="dn" k="br">[${dn('+28')}${D}${dn('-7')}]</span></div>` },
+  { k: 'sl', x: 960, y: 470, html: `<div class="steps"><div class="sline" k="g1" h><span class="no">1</span>[${dn('+28')} ÷ ${dn('-7')}] = <span class="neg">${M}4</span></div><div class="sline" k="g2" h><span class="no">2</span>${dn('+56')} ÷ ${dn('-4')} = <span class="neg" k="g2r">${M}14</span></div></div>` },
+  { k: 'wg', x: 960, y: 730, html: `<div class="card wrongc" style="padding:24px 40px"><span class="cl" style="font-size:46px">✗ 56 ÷ 28 ÷ (${M}7) = ${M}${fr(2, 7)}</span><span class="zh neg" style="font-size:36px;margin-left:24px;font-weight:700">冇先計括號</span></div>` },
+  { k: 'pri', x: 960, y: 730, html: `<div class="pri"><div class="pitem"><b>1</b>[ ] brackets 先</div><div class="parr">→</div><div class="pitem"><b>2</b>× ÷ left to right</div></div>` },
+ ], cues: [
+  { sub: '但係，如果見到 brackets，就要先計括號入面。', set: 'q' },
+  { sub: '(+56) ÷ [(+28) ÷ (−7)]，先計方括號。', set: 'br.+box' },
+  { sub: '(+28) ÷ (−7)：異號，negative。28 ÷ 7 = 4，即係 −4。', set: 'sl g1', sfx: 'pop' },
+  { sub: '跟住 (+56) ÷ (−4)：異號，negative，56 ÷ 4 = 14。', set: 'g2', sfx: 'pop' },
+  { sub: '答案係 −14。', set: 'g2r.+pulse', sfx: 'ding' },
+  { sub: '如果見到括號都照樣由左至右計，就會錯。', set: 'g2r.-pulse wg', sfx: 'wrong' },
+  { sub: '所以次序係：先 brackets，然後 left to right。', set: '-wg pri', sfx: 'pop' },
+ ]},
+{ els: [
+  { k: 'q', x: 960, y: 230, html: `<div class="eq">${dn('-60', 'a1')}${D}<span class="dn" k="br">[${dn('-12')}${D}${dn('+3')}]</span></div>` },
+  { k: 'hint', x: 960, y: 380, html: `<div class="pz"><i></i>PAUSE · 自己計</div>` },
+  { k: 'sl', x: 960, y: 560, html: `<div class="steps"><div class="sline" k="g1" h><span class="no">1</span>[${dn('-12')} ÷ ${dn('+3')}] = <span class="neg">${M}4</span></div><div class="sline" k="g2" h><span class="no">2</span>${dn('-60')} ÷ ${dn('-4')} = <span class="pos" k="g2r">15</span></div></div>` },
+ ], cues: [
+  { sub: '到你。(−60) ÷ [(−12) ÷ (+3)]。', set: 'q br.+box hint' },
+  { think: 6 },
+  { sub: '先計括號：(−12) ÷ (+3)，異號，等於 −4。', set: '-hint sl g1', sfx: 'pop' },
+  { sub: '然後 (−60) ÷ (−4)：同號，positive，60 ÷ 4 = 15。', set: 'g2', sfx: 'pop' },
+  { sub: '答案係 15。做啱嘅話，你已經掌握咗！', set: 'g2r.+pulse', sfx: 'ding' },
+ ]},
+
+/* ---------------- 11 mistakes ---------------- */
+{ ch: '五大常見錯誤', els: [
+  { k: 'list', x: 960, y: 480, html: `<div class="mlist">
+    ${mrow(1, `(${M}3) × (${M}6) = <s>${M}18</s>`, '18', '負 × 負 = 正')}
+    ${mrow(2, `(${M}45) ÷ (${M}9) = <s>${M}5</s>`, '5', '÷ 都係同號得正')}
+    ${mrow(3, `${M}(+11)(${M}16) = <s>${M}176</s>`, '176', '前面個負號都要數')}
+    ${mrow(4, `216 ÷ (${M}3) ÷ (${M}8)：<s>先計 3 ÷ 8</s>`, 'left to right', '除法唔可以調次序')}
+    ${mrow(5, `56 ÷ [28 ÷ (${M}7)]：<s>由左至右</s>`, 'brackets 先', '括號優先')}
+  </div>` },
+ ], cues: [
+  { sub: '最後，睇吓最常見嘅五個錯誤。', set: 'list' },
+  { sub: '一：負乘負，答案係正，唔係負。', set: 'r1', at: [{ t: 1.4, set: 'f1 y1', sfx: 'pop' }] },
+  { sub: '二：負除負，都係正。Division 一樣同號得正。', set: 'r2', at: [{ t: 1.4, set: 'f2 y2', sfx: 'pop' }] },
+  { sub: '三：漏咗最前面個負號。佢都要數！', set: 'r3', at: [{ t: 1.4, set: 'f3 y3', sfx: 'pop' }] },
+  { sub: '四：連續除法唔可以先計後面，要 left to right。', set: 'r4', at: [{ t: 1.6, set: 'f4 y4', sfx: 'pop' }] },
+  { sub: '五：見到 brackets，就要先計括號。', set: 'r5', at: [{ t: 1.4, set: 'f5 y5', sfx: 'pop' }] },
+  { sub: '仲有：sign 啱咗，都要計啱 number；number 啱咗，都要寫埋 sign。' },
+ ]},
+
+/* ---------------- 12 checking ---------------- */
+{ ch: '10 秒檢查答案', els: [
+  { k: 'c1', x: 390, y: 480, html: `<div class="ccard"><div class="ic">CHECK 1</div><h3>再數負號</h3><div class="body"><span class="acc">even</span> → <span class="pos">+</span><br><span class="acc">odd</span> → <span class="neg">${M}</span></div></div>` },
+  { k: 'c2', x: 960, y: 480, html: `<div class="ccard"><div class="ic">CHECK 2</div><h3>乘返轉頭</h3><div class="body">(${M}24) ÷ (${M}3) = 8<br><span k="v2" h>8 × (${M}3) = ${M}24 <span class="pos">✓</span></span></div></div>` },
+  { k: 'c3', x: 1530, y: 480, html: `<div class="ccard"><div class="ic">CHECK 3</div><h3>估吓大細</h3><div class="body">18 × 4<br>≈ 20 × 4 = 80<br><span k="v3" h>72 合理 <span class="pos">✓</span></span></div></div>` },
+ ], cues: [
+  { sub: '做完題目，用十秒檢查吓。' },
+  { sub: '第一，再數一次負號：even 就正，odd 就負。', set: 'c1', sfx: 'pop' },
+  { sub: '第二，除法可以乘返轉頭：(−24) ÷ (−3) = 8。', set: 'c2', sfx: 'pop' },
+  { sub: '咁 8 × (−3) 係咪等於 −24？係，啱晒。', set: 'v2', sfx: 'ding' },
+  { sub: '第三，估吓大細：18 × 4，大約 20 × 4 = 80，所以 72 合理。', set: 'c3', at: [{ t: 4.2, set: 'v3', sfx: 'ding' }] },
+ ]},
+
+/* ---------------- 13 challenge ---------------- */
+{ ch: '挑戰題', els: [
+  { k: 'pz', x: 960, y: 130, html: `<div class="pz"><i></i>PAUSE · 攞紙筆計</div>` },
+  { k: 'q1', x: 960, y: 290, html: `<div class="eq">${dn('-32', 'a1', ['c1', 1])}${D}${dn('+8')}${D}${dn('-2', 'a2', ['c2', 2])}${res('r1', '2', 'pos')}</div>` },
+  { k: 'q2', x: 960, y: 290, html: `<div class="eq">12${X}${sf('-', 5, 16, 'b1', ['d1', 1])}${X}${sf('-', 7, 20, 'b2', ['d2', 2])}${res('r2', fr(21, 16), 'pos')}</div>` },
+  { k: 'q3', x: 960, y: 290, html: `<div class="eq">${front('fm', ['e1', 1])}${dn('-2', 'c1x', ['e2', 2])}${X}${dn('-0.5', 'c2x', ['e3', 3])}${X}${dn('+6')}${res('r3', M + '6', 'neg')}</div>` },
+  { k: 'bld', x: 620, y: 680, html: builder('bc') },
+  { k: 'w1', x: 1330, y: 680, html: `<div><div class="wl" k="x1" h>32 ÷ 8 = 4</div><div class="wl" k="x2" h>4 ÷ 2 = 2</div></div>` },
+  { k: 'w2', x: 1340, y: 680, html: `<div><div class="wl" k="y1" h>${fr('12 × 5 × 7', '16 × 20')} = ${fr(420, 320)}</div><div class="wl" k="y2" h>= ${fr(21, 16)}</div></div>` },
+  { k: 'w3', x: 1330, y: 680, html: `<div><div class="wl" k="z1" h>2 × 0.5 = 1</div><div class="wl" k="z2" h>1 × 6 = 6</div></div>` },
+ ], cues: [
+  { sub: '最後三條挑戰題。第一題：(−32) ÷ (+8) ÷ (−2)。', set: 'pz q1 bld w1' },
+  { sub: '暫停諗吓，或者攞紙筆計。', set: 'pz.+pulse' },
+  { think: 8 },
+  C({ sub: '兩個負號，even，positive。', set: 'pz.-pulse c1 c2', sfx: 'pop' }, SP('bc')),
+  C({ sub: 'Left to right：32 ÷ 8 = 4，4 ÷ 2 = 2。答案 2。', at: [{ t: 1.6, set: 'x1' }, { t: 3.0, set: 'x2' }, { t: 3.8, set: 'r1', sfx: 'ding' }] }, NUM('bc', '2')),
+  C({ sub: '第二題：12 × (−5/16) × (−7/20)。', set: '-q1 -w1 q2 w2' }, RST('bc')),
+  { think: 8 },
+  C({ sub: '兩個負號，even，positive。', set: 'd1 d2', sfx: 'pop' }, SP('bc')),
+  { sub: '分子 12 × 5 × 7 = 420，分母 16 × 20 = 320。', set: 'y1' },
+  C({ sub: '約簡之後，答案係 21/16。', set: 'y2', at: [{ t: 1.6, set: 'r2', sfx: 'ding' }] }, NUM('bc', fr(21, 16))),
+  C({ sub: '第三題：−(−2) × (−0.5) × (+6)。小心前面！', say: '第三題：負，負2，乘 負0.5，乘 正6。小心前面！', set: '-q2 -w2 q3 w3' }, RST('bc')),
+  { think: 8 },
+  C({ sub: '前面一個，入面兩個，總共三個，odd，negative。', at: [{ t: .4, set: 'e1 fm.+ring', sfx: 'pop' }, { t: 1.4, set: 'e2 e3', sfx: 'pop' }] }, SN('bc')),
+  C({ sub: '2 × 0.5 × 6 = 6。答案 −6。', at: [{ t: .6, set: 'z1' }, { t: 1.6, set: 'z2' }, { t: 2.4, set: 'r3', sfx: 'ding' }] }, NUM('bc', '6')),
+ ]},
+
+/* ---------------- 14 summary ---------------- */
+{ ch: '總結', els: [
+  { k: 'list', x: 960, y: 440, html: `<div class="slist">
+    <div class="srow" k="i1" h><span class="n">1</span>先睇 <span class="en">SIGN</span>：數負號，<span class="en">even</span>&nbsp;→&nbsp;<span class="pos">+</span>，<span class="en">odd</span>&nbsp;→&nbsp;<span class="neg">${M}</span></div>
+    <div class="srow" k="i2" h><span class="n">2</span>再計 <span class="en">NUMBER</span>：<span class="en">brackets</span> 先，然後 <span class="en">left to right</span></div>
+    <div class="srow" k="i3" h><span class="n">3</span>最前面嘅負號，一樣要數</div>
+    <div class="srow" k="i4" h><span class="n">4</span>檢查：再數負號 · 乘返轉頭 · 估大細</div>
+  </div>` },
+  { k: 'out', x: 960, y: 810, html: `<div class="outro">先 <span class="acc">SIGN</span>，再 <span class="acc">NUMBER</span></div>` },
+ ], cues: [
+  { sub: '好，總結一下。', set: 'list' },
+  { sub: '第一，先睇 sign：數負號，even 就正，odd 就負。', set: 'i1', sfx: 'pop' },
+  { sub: '第二，再計 number：有 brackets 先計，然後 left to right。', set: 'i2', sfx: 'pop' },
+  { sub: '第三，最前面嘅負號，一樣要數。', set: 'i3', sfx: 'pop' },
+  { sub: '第四，做完記得檢查：再數負號，或者乘返轉頭。', set: 'i4', sfx: 'pop' },
+  { sub: '記住：先睇 sign，再計 number。今日就講到呢度，下次見！', set: 'out', sfx: 'ding', min: 5 },
+ ]},
+];
+
+/* =====================================================================
+   3. SPEECH TEXT + DURATION ESTIMATE
+   ===================================================================== */
+function strip(html) { const d = document.createElement('div'); d.innerHTML = html; return d.textContent; }
+function toSpeech(s) {
+  return s
+    .replace(/(\d+)\/(\d+)/g, (m, a, b) => `${b}分之${a}`)
+    .replace(/\)\s*\(/g, ') 乘 (')
+    .replace(/(\d)\s*\(/g, '$1 乘 (')
+    .replace(/[\(\[]\s*\+/g, '正').replace(/[\(\[]\s*[−-]/g, '負')
+    .replace(/[−-](?=\s*[\d\(\[負正])/g, '負').replace(/\+(?=\d)/g, '正')
+    .replace(/[\(\)\[\]]/g, ' ')
+    .replace(/×/g, ' 乘 ').replace(/÷/g, ' 除以 ').replace(/≈/g, ' 大約 ').replace(/=/g, ' 等於 ')
+    .replace(/[✓✗→…「」]/g, '，').replace(/\s+/g, ' ').trim();
+}
+function est(s) {
+  if (!s) return 0;
+  const cjk = (s.match(/[㐀-鿿]/g) || []).length;
+  const words = (s.match(/[A-Za-z]+/g) || []).length;
+  let syl = 0; (s.match(/\d+(\.\d+)?/g) || []).forEach(n => syl += Math.min(n.replace('.', '').length * 1.6, 7));
+  const punct = (s.match(/[，。！？：；,.!?]/g) || []).length;
+  return 0.35 + cjk * 0.225 + words * 0.4 + syl * 0.2 + punct * 0.22;
+}
+
+/* =====================================================================
+   4. TIMELINE BUILD
+   ===================================================================== */
+const CUES = []; let TOTAL = 0;
+(function buildTimeline() {
+  let T = 0, chNo = 0, prev = null;
+  SCENES.forEach((sc, si) => {
+    if (sc.ch) { chNo++; sc.chNo = chNo; sc.chName = sc.ch; } else { sc.chNo = prev.chNo; sc.chName = prev.chName; }
+    sc.start = T; sc.steps = [];
+    sc.cues.forEach(c => {
+      c.scene = si;
+      c.say = c.think ? '' : (c.say ?? toSpeech(c.sub));
+      c.lastAt = c.at ? Math.max(...c.at.map(a => a.t)) : 0;
+      c.dur = c.think ? c.think : Math.max(est(c.say) + 0.55, c.lastAt + 1.0, c.min || 0);
+      c.start = T; c.end = T + c.dur; T = c.end;
+      c.maxHold = est(c.say) * 1.3 + 4;
+      c.idx = CUES.length; CUES.push(c);
+      if (c.set || c.mv) sc.steps.push({ time: c.start, set: c.set, mv: c.mv });
+      (c.at || []).forEach(a => sc.steps.push({ time: c.start + a.t, set: a.set, mv: a.mv, sfx: a.sfx }));
+    });
+    sc.steps.sort((a, b) => a.time - b.time);
+    sc.end = T; prev = sc;
+  });
+  TOTAL = T;
+})();
+
+/* =====================================================================
+   5. STAGE ENGINE (deterministic state → DOM, seekable)
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const player = $('player'), stage = $('stage'), layer = $('layer');
+let cur = null;           // current built scene
+let instantNext = true;   // apply next render without transitions (after seek)
+
+function buildScene(si) {
+  const sc = SCENES[si];
+  const box = document.createElement('div'); box.className = 'scene';
+  const nodes = new Map(), init = new Map();
+  sc.els.forEach(e => {
+    const d = document.createElement('div');
+    d.className = 'el' + (e.cls ? ' ' + e.cls : ''); d.innerHTML = e.html;
+    d._top = true; d._base = d.className;
+    nodes.set(e.k, d);
+    init.set(e.k, { o: e.o ?? 0, x: e.x, y: e.y, s: e.s ?? 1, r: e.r || 0, dx: 0, dy: 0, c: new Set() });
+    d.querySelectorAll('[k]').forEach(n => {
+      const k = n.getAttribute('k');
+      n._base = n.getAttribute('class') || ''; n._orig = n.innerHTML;
+      nodes.set(k, n); init.set(k, { o: n.hasAttribute('h') ? 0 : 1, c: new Set() });
+    });
+    box.appendChild(d);
+  });
+  return { si, sc, box, nodes, init, n: -1 };
+}
+function cloneState(init) { const st = new Map(); init.forEach((v, k) => st.set(k, { ...v, c: new Set(v.c) })); return st; }
+function applyStep(st, step) {
+  const sets = [].concat(step.set || []).join(' ').trim();
+  if (sets) sets.split(/\s+/).forEach(tok => {
+    let key, fn;
+    const dot = tok.indexOf('.');
+    if (dot > 0) { key = tok.slice(0, dot); const op = tok[dot + 1], cls = tok.slice(dot + 2); fn = s => op === '+' ? s.c.add(cls) : s.c.delete(cls); }
+    else if (tok[0] === '-') { key = tok.slice(1); fn = s => s.o = 0; }
+    else { key = tok; fn = s => s.o = 1; }
+    const s = st.get(key); if (!s) { console.warn('missing key', key); return; } fn(s);
+  });
+  [].concat(step.mv || []).forEach(obj => {
+    for (const key in obj) {
+      const s = st.get(key); if (!s) { console.warn('missing key', key); continue; }
+      const v = obj[key]; if (typeof v === 'string') s.t = v; else Object.assign(s, v);
+    }
+  });
+}
+function applyDOM(S, st, instant) {
+  if (instant) layer.classList.add('instant');
+  S.nodes.forEach((node, key) => {
+    const s = st.get(key);
+    node.style.opacity = s.o;
+    if (node._top) {
+      node.style.left = s.x + 'px'; node.style.top = s.y + 'px';
+      node.style.transform = `translate(-50%,-50%) translate(${s.dx || 0}px,${s.dy || 0}px) rotate(${s.r || 0}deg) scale(${s.s ?? 1})`;
+    } else if (s.dx || s.dy || s.r || (s.s != null && s.s !== 1)) {
+      node.style.transform = `translate(${s.dx || 0}px,${s.dy || 0}px) rotate(${s.r || 0}deg) scale(${s.s ?? 1})`;
+    } else if (node.style.transform) node.style.transform = '';
+    const cls = (node._base + ' ' + [...s.c].join(' ')).trim();
+    if (node.getAttribute('class') !== cls) node.setAttribute('class', cls);
+    const want = s.t !== undefined ? s.t : null;
+    if (want !== null && node._t !== want) {
+      node.innerHTML = want; node._t = want;
+      if (!instant) { node.classList.remove('bump'); void node.offsetWidth; node.classList.add('bump'); }
+    } else if (want === null && node._t !== undefined) { node.innerHTML = node._orig; node._t = undefined; }
+  });
+  if (instant) { void layer.offsetWidth; layer.classList.remove('instant'); }
+}
+function switchScene(si, instant) {
+  const old = cur;
+  if (old) {
+    if (instant) old.box.remove();
+    else { old.box.classList.add('leaving'); setTimeout(() => old.box.remove(), 500); }
+  }
+  const S = buildScene(si);
+  layer.appendChild(S.box);
+  applyDOM(S, cloneState(S.init), true);
+  cur = S;
+}
+function stepCount(S, t) { let n = 0; for (const s of S.sc.steps) { if (s.time > t + 1e-6) break; n++; } return n; }
+function renderStage(t, ci) {
+  const cue = CUES[ci], instant = instantNext;
+  if (!cur || cur.si !== cue.scene) switchScene(cue.scene, instant);
+  const n = stepCount(cur, t);
+  if (n !== cur.n) {
+    const st = cloneState(cur.init);
+    for (let i = 0; i < n; i++) applyStep(st, cur.sc.steps[i]);
+    if (!instant && playing && n > cur.n && cur.n >= 0) for (let i = cur.n; i < n; i++) if (cur.sc.steps[i].sfx) SFX.play(cur.sc.steps[i].sfx);
+    applyDOM(cur, st, instant);
+    cur.n = n;
+  }
+  instantNext = false;
+}
+
+/* =====================================================================
+   6. VOICE (Web Speech API, prefers Cantonese zh-HK)
+   ===================================================================== */
+const V = {
+  ok: 'speechSynthesis' in window, voices: [], sel: null, on: true, speaking: false, cur: null, userPicked: false,
+  score(v) {
+    const l = (v.lang || '').toLowerCase().replace('_', '-'), n = v.name.toLowerCase();
+    let s;
+    if (l.startsWith('zh-hk') || l.startsWith('yue') || /cantonese|粵|粤|hong kong|sinji|sin-ji|hiugaai|hiumaan|wanlung/.test(n)) s = 100;
+    else if (l.startsWith('zh')) s = 10; else return -1;
+    if (/natural|online|premium|enhanced|neural/.test(n)) s += 20;
+    if (/google/.test(n)) s += 6;
+    return s;
+  },
+  load() {
+    if (!this.ok) return;
+    this.voices = speechSynthesis.getVoices().map(v => ({ v, s: this.score(v) })).filter(x => x.s >= 0).sort((a, b) => b.s - a.s);
+    if (!this.userPicked) { const best = this.voices[0]; this.sel = best && best.s >= 100 ? best.v : null; }
+    populateVoices();
+  },
+  active() { return this.on && !!this.sel; },
+  speak(text) {
+    if (!this.active() || !text) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.voice = this.sel; u.lang = this.sel.lang; u.rate = Math.min(2, speed); u.pitch = 1;
+    u.onend = u.onerror = () => { if (this.cur === u) this.speaking = false; };
+    this.cur = u; this.speaking = true;
+    speechSynthesis.speak(u);
+    if (speechSynthesis.paused) speechSynthesis.resume();
+  },
+  cancel() { this.cur = null; this.speaking = false; if (this.ok) speechSynthesis.cancel(); },
+};
+function populateVoices() {
+  const sel = $('voiceSel'); sel.innerHTML = '';
+  V.voices.forEach((x, i) => {
+    const o = document.createElement('option'); o.value = i;
+    o.textContent = (x.s >= 100 ? '粵語 · ' : '') + x.v.name + ' (' + x.v.lang + ')';
+    if (V.sel === x.v) o.selected = true; sel.appendChild(o);
+  });
+  const off = document.createElement('option'); off.value = 'off'; off.textContent = '無旁白（只顯示字幕）';
+  if (!V.sel) off.selected = true; sel.appendChild(off);
+  const info = $('voiceInfo'), note = $('vnote');
+  if (!V.ok) { info.innerHTML = '呢個瀏覽器唔支援語音，會用<b>字幕模式</b>自動播放。'; note.textContent = ''; return; }
+  if (V.sel && V.score(V.sel) >= 100) { info.innerHTML = '🔊 粵語旁白：<b>' + V.sel.name + '</b>　請開聲'; note.textContent = '已揀粵語聲音。'; }
+  else if (V.sel) { info.innerHTML = '🔊 旁白：<b>' + V.sel.name + '</b>（非粵語）'; note.textContent = '呢個唔係粵語聲音，讀音可能唔自然。'; }
+  else {
+    info.innerHTML = '未搵到粵語聲音 — 會用<b>字幕模式</b>（字幕同動畫照樣同步）。<br>建議用 Chrome / Edge；Mac 可以喺「系統設定 → 輔助使用 → 朗讀內容」加入粵語 (Sinji)。';
+    note.textContent = '未搵到 zh-HK 聲音；可以喺上面手動揀其他中文聲音。';
+  }
+}
+
+/* =====================================================================
+   7. SOUND FX (tiny WebAudio synth, very quiet)
+   ===================================================================== */
+const SFX = {
+  ctx: null, on: true,
+  init() { if (!this.ctx) { try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { } } if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+  play(n) {
+    if (!this.on || !this.ctx) return;
+    const c = this.ctx, t0 = c.currentTime;
+    const tone = (f1, f2, d, g, type = 'sine', delay = 0) => {
+      const o = c.createOscillator(), a = c.createGain(), t = t0 + delay;
+      o.type = type; o.frequency.setValueAtTime(f1, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d);
+      a.gain.setValueAtTime(0.0001, t); a.gain.exponentialRampToValueAtTime(g, t + 0.012); a.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(a).connect(c.destination); o.start(t); o.stop(t + d + 0.05);
+    };
+    if (n === 'pop') tone(520, 860, 0.12, 0.045);
+    else if (n === 'ding') { tone(880, 0, 0.55, 0.04); tone(1318, 0, 0.7, 0.028, 'sine', 0.09); }
+    else if (n === 'tick') tone(1400, 0, 0.035, 0.018, 'square');
+    else if (n === 'wrong') tone(320, 210, 0.28, 0.04, 'triangle');
+    else if (n === 'whoosh') {
+      const len = 0.45, buf = c.createBuffer(1, c.sampleRate * len, c.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.sin(Math.PI * i / d.length);
+      const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+      src.buffer = buf; f.type = 'bandpass'; f.Q.value = 1.2;
+      f.frequency.setValueAtTime(400, t0); f.frequency.exponentialRampToValueAtTime(2400, t0 + len);
+      g.gain.value = 0.05; src.connect(f).connect(g).connect(c.destination); src.start(t0);
+    }
+  },
+};
+
+/* =====================================================================
+   8. PLAYBACK CLOCK (narration-aware)
+   ===================================================================== */
+let t = 0, playing = false, speed = 1, curCue = -1, spokenCue = -1, holdAcc = 0, lastFrame = 0, lastTick = -1, ended = false;
+function cueAt(time) {
+  let lo = 0, hi = CUES.length - 1;
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (CUES[mid].start <= time + 1e-6) lo = mid; else hi = mid - 1; }
+  return lo;
+}
+function enterCue(ci, natural) {
+  curCue = ci; holdAcc = 0; lastTick = -1;
+  const c = CUES[ci];
+  if (!playing) return;
+  if (natural && c.sfx) SFX.play(c.sfx);
+  if (c.think && natural) SFX.play('tick');
+  if (c.say && V.active()) { V.speak(c.say); spokenCue = ci; } else { spokenCue = -1; }
+}
+function frame(now) {
+  const dt = lastFrame ? Math.min(0.1, (now - lastFrame) / 1000) : 0; lastFrame = now;
+  if (playing) {
+    const c = CUES[curCue];
+    let mul = speed;
+    // narration finished early → glide quickly to the end of this cue
+    if (V.active() && spokenCue === curCue && !V.speaking && c.say && t < c.end - 0.4 && t >= c.start + c.lastAt) mul *= 3.5;
+    let nt = t + dt * mul;
+    // narration still talking → hold the clock at the end of the cue
+    if (V.active() && spokenCue === curCue && V.speaking && nt >= c.end - 0.04) {
+      nt = c.end - 0.04; holdAcc += dt;
+      if (holdAcc > c.maxHold) { V.speaking = false; }
+    }
+    if (nt >= TOTAL) { nt = TOTAL - 0.001; t = nt; finish(); }
+    else {
+      t = nt;
+      const ci = cueAt(t);
+      if (ci !== curCue) enterCue(ci, true);
+    }
+  }
+  render();
+  requestAnimationFrame(frame);
+}
+let subCue = -1;
+const EN_RE = /([A-Za-z][A-Za-z ]*[A-Za-z]|[A-Za-z])/g;
+function subHTML(text) {
+  const esc = text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  return esc.replace(EN_RE, w => {
+    const lw = w.toLowerCase();
+    if (/^positive$/.test(lw)) return `<span class="p">${w}</span>`;
+    if (/^negative$/.test(lw)) return `<span class="n">${w}</span>`;
+    return `<span class="en">${w}</span>`;
+  });
+}
+function render() {
+  const ci = cueAt(t), c = CUES[ci];
+  renderStage(t, ci);
+  if (ci !== subCue) {
+    subCue = ci; const el = $('sub');
+    if (c.think) { el.className = 'think'; el.innerHTML = '⏸ 停一停，自己諗吓先'; }
+    else if (c.sub) { el.className = ''; el.innerHTML = subHTML(c.sub); }
+    else el.className = 'empty';
+  }
+  const th = $('think');
+  if (c.think) {
+    th.classList.add('on');
+    const p = Math.min(1, (t - c.start) / c.dur), rem = Math.max(0, Math.ceil(c.end - t - 0.05));
+    $('thinkArc').style.strokeDashoffset = (465 * p).toFixed(1);
+    $('thinkNum').textContent = rem;
+    if (playing && rem !== lastTick) { if (lastTick !== -1 && rem <= 3 && rem > 0) SFX.play('tick'); lastTick = rem; }
+  } else th.classList.remove('on');
+  const sc = SCENES[c.scene];
+  $('hudNo').textContent = String(sc.chNo).padStart(2, '0'); $('hudNm').textContent = sc.chName;
+  $('chname').textContent = sc.chName;
+  const pct = (t / TOTAL) * 100;
+  $('fill').style.width = pct + '%'; $('knob').style.left = pct + '%';
+  $('time').textContent = fmt(t) + ' / ' + fmt(TOTAL);
+}
+function fmt(s) { s = Math.max(0, Math.floor(s)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+
+/* =====================================================================
+   9. CONTROLS
+   ===================================================================== */
+const ICON_PLAY = '<path d="M7 4l13 8-13 8z"/>', ICON_PAUSE = '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>';
+function setPlayIcon() { $('icPlay').innerHTML = playing ? ICON_PAUSE : ICON_PLAY; }
+function play() {
+  SFX.init();
+  if (ended) { ended = false; $('endOv').classList.add('hide'); seek(0); }
+  $('startOv').classList.add('hide');
+  playing = true; setPlayIcon();
+  const c = CUES[curCue];
+  // resume at the start of the current sentence so voice & picture stay in sync
+  if (c.say && V.active() && t - c.start > 0.3) { t = c.start; instantNext = true; }
+  enterCue(curCue, false);
+  poke();
+}
+function pause() { playing = false; V.cancel(); setPlayIcon(); poke(); }
+function toggle() { playing ? pause() : play(); }
+function seek(time, speak = true) {
+  V.cancel();
+  const ci = cueAt(Math.max(0, Math.min(TOTAL - 0.01, time)));
+  t = CUES[ci].start; instantNext = true; curCue = ci; spokenCue = -1; holdAcc = 0;
+  if (ended && t < TOTAL - 0.5) { ended = false; $('endOv').classList.add('hide'); }
+  render();
+  if (playing && speak) enterCue(ci, false);
+}
+function prevCue() { const c = CUES[curCue]; seek(t - c.start > 1.2 || curCue === 0 ? c.start : CUES[curCue - 1].start); }
+function nextCue() { if (curCue < CUES.length - 1) seek(CUES[curCue + 1].start); }
+function finish() { playing = false; ended = true; V.cancel(); setPlayIcon(); $('endOv').classList.remove('hide'); }
+function restart() { ended = false; $('endOv').classList.add('hide'); seek(0); if (!playing) play(); }
+
+$('startBtn').onclick = () => { V.speak(' '); play(); };
+$('againBtn').onclick = restart;
+$('bPlay').onclick = toggle; $('bReplay').onclick = restart; $('bPrev').onclick = prevCue; $('bNext').onclick = nextCue;
+$('bCC').onclick = () => { player.classList.toggle('nocc'); $('bCC').classList.toggle('off'); };
+$('bFS').onclick = toggleFS;
+$('bSet').onclick = e => { e.stopPropagation(); $('settings').classList.toggle('open'); };
+$('settings').onclick = e => e.stopPropagation();
+stage.onclick = () => { if ($('settings').classList.contains('open')) { $('settings').classList.remove('open'); return; } toggle(); };
+function toggleFS() {
+  const d = document;
+  if (d.fullscreenElement || d.webkitFullscreenElement) (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+  else (player.requestFullscreen || player.webkitRequestFullscreen).call(player);
+}
+$('voiceSel').onchange = e => {
+  V.userPicked = true; V.cancel();
+  if (e.target.value === 'off') V.sel = null; else V.sel = V.voices[+e.target.value].v;
+  populateVoices();
+  if (playing) enterCue(curCue, false);
+};
+$('speedSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; speed = +b.dataset.v; [...$('speedSeg').children].forEach(x => x.classList.toggle('on', x === b)); if (playing && V.active()) { seek(CUES[curCue].start); } };
+$('sfxSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; SFX.on = b.dataset.v === '1'; [...$('sfxSeg').children].forEach(x => x.classList.toggle('on', x === b)); };
+
+// progress bar: drag to seek (snaps to sentence start)
+const bar = $('bar');
+let dragging = false;
+function barTime(e) { const r = bar.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * TOTAL; }
+bar.addEventListener('pointerdown', e => { dragging = true; bar.setPointerCapture(e.pointerId); V.cancel(); seek(barTime(e), false); });
+bar.addEventListener('pointermove', e => {
+  const tm = barTime(e), c = CUES[cueAt(tm)], r = bar.getBoundingClientRect();
+  const tip = $('tipbox'); tip.textContent = fmt(tm) + ' · ' + SCENES[c.scene].chName;
+  tip.style.left = Math.max(60, Math.min(r.width - 60, e.clientX - r.left)) + 'px';
+  if (dragging) seek(tm, false);
+});
+bar.addEventListener('pointerup', e => { if (!dragging) return; dragging = false; seek(barTime(e), true); });
+// chapter markers
+SCENES.forEach((sc, i) => { if (sc.ch && i > 0) { const m = document.createElement('div'); m.className = 'mk'; m.style.left = (sc.start / TOTAL * 100) + '%'; $('marks').appendChild(m); } });
+$('marks').style.cssText = 'position:absolute;left:0;right:0;top:50%;height:8px;transform:translateY(-50%);pointer-events:none';
+
+// keyboard
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'SELECT') return;
+  if (e.code === 'Space') { e.preventDefault(); if (!$('startOv').classList.contains('hide')) { $('startBtn').click(); } else toggle(); }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); prevCue(); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); nextCue(); }
+  else if (e.key === 'f' || e.key === 'F') toggleFS();
+  else if (e.key === 'c' || e.key === 'C') $('bCC').click();
+  else if (e.key === 'Home') seek(0);
+  poke();
+});
+// auto-hide UI
+let uiTimer = 0;
+function poke() { player.classList.add('ui'); clearTimeout(uiTimer); uiTimer = setTimeout(() => { if (playing && !dragging && !$('settings').classList.contains('open')) player.classList.remove('ui'); }, 2600); }
+player.addEventListener('pointermove', poke);
+player.style.cursor = 'default';
+
+// stage scaling (16:9, letterboxed)
+function fit() {
+  const w = player.clientWidth, h = player.clientHeight, s = Math.min(w / 1920, h / 1080);
+  stage.style.transform = `translate(-50%,-50%) scale(${s})`;
+}
+window.addEventListener('resize', fit); fit();
+
+// init
+if (V.ok) { V.load(); speechSynthesis.onvoiceschanged = () => V.load(); setTimeout(() => V.load(), 600); } else populateVoices();
+curCue = 0; render(); poke();
+requestAnimationFrame(frame);
+window.__lesson = { SCENES, CUES, seek, get t() { return t; }, TOTAL };
+</script>
+</body>
+</html>

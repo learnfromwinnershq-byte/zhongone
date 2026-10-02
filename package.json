@@ -1,0 +1,9 @@
+{
+  "name": "zhongone",
+  "version": "1.0.0",
+  "description": "中一 · 香港中一自學系統",
+  "private": true,
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}

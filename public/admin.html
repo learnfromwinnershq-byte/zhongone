@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>中一 · 管理</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--ink:#141a2b;--mut:#6b7488;--line:#e6e9f0;--acc:#2f6bff;--bad:#e5484d}
+@media (prefers-color-scheme:dark){:root{--bg:#0b0f1c;--card:#141a2c;--ink:#eef2fb;--mut:#8792ad;--line:#232b42;--acc:#7fb0ff;--bad:#ff6b81}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:Inter,"Noto Sans HK","PingFang HK","Microsoft JhengHei",system-ui,sans-serif}
+.wrap{max-width:720px;margin:0 auto;padding:48px 16px 80px}
+h1{font-size:28px;font-weight:900}
+.top{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+.top a,.link{margin-left:auto;color:var(--mut);font-size:14px;text-decoration:none;background:none;border:0;cursor:pointer}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;margin-bottom:18px}
+label{display:block;font-size:13px;color:var(--mut);margin:12px 0 6px}
+input,select{width:100%;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit}
+button.btn{margin-top:16px;padding:11px 20px;border-radius:10px;border:0;background:var(--acc);color:#fff;font:inherit;font-weight:700;cursor:pointer}
+button.btn:disabled{opacity:.5}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:26px;text-align:center;color:var(--mut);cursor:pointer}
+.drop.on{border-color:var(--acc);color:var(--ink)}
+.row{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .t{font-weight:700}.row .d{font-size:13px;color:var(--mut)}
+.row a{color:var(--acc);font-size:14px;text-decoration:none;margin-left:auto}
+.del{background:none;border:1px solid var(--line);color:var(--bad);border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit;font-size:13px}
+.msg{margin-top:12px;font-size:14px;min-height:1em}
+.msg.err{color:var(--bad)}
+.hide{display:none}
+h2{font-size:16px;margin-bottom:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><h1>中一 · 管理</h1><a href="/">← 返主頁</a></div>
+
+  <div class="card hide" id="loginBox">
+    <h2>管理員登入</h2>
+    <form id="loginForm"><label>密碼</label><input type="password" id="pw" autocomplete="current-password" required>
+      <button class="btn">登入</button><div class="msg err" id="loginMsg"></div></form>
+  </div>
+
+  <div class="hide" id="adminBox">
+    <div class="card">
+      <h2>上載課件（HTML）</h2>
+      <form id="upForm">
+        <div class="drop" id="drop">撳呢度揀 .html 檔案，或者拖入嚟<input type="file" id="file" accept=".html,.htm,text/html" hidden></div>
+        <label>標題（留空就用 HTML 入面嘅 &lt;title&gt;）</label><input id="title" maxlength="120">
+        <label>簡介（可選）</label><input id="desc" maxlength="200">
+        <label>科目</label><select id="subject"></select>
+        <button class="btn" id="upBtn" disabled>上載</button>
+        <div class="msg" id="upMsg"></div>
+      </form>
+    </div>
+    <div class="card"><h2>現有課件</h2><div id="list"></div></div>
+    <button class="link" id="logout">登出</button>
+  </div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let picked = null;
+
+async function boot() {
+  const { admin } = await (await fetch('/api/me')).json();
+  $('loginBox').classList.toggle('hide', admin);
+  $('adminBox').classList.toggle('hide', !admin);
+  if (admin) load();
+}
+async function load() {
+  const { subjects, lessons } = await (await fetch('/api/lessons')).json();
+  if (!$('subject').options.length) $('subject').innerHTML = subjects.map(s => `<option>${esc(s)}</option>`).join('');
+  $('list').innerHTML = lessons.length ? lessons.map(l => `<div class="row"><div><div class="t">${esc(l.title)}</div><div class="d">${esc(l.subject)}${l.desc ? ' · ' + esc(l.desc) : ''}</div></div><a href="/lesson/${l.id}" target="_blank">開啟</a><button class="del" data-id="${l.id}" data-t="${esc(l.title)}">刪除</button></div>`).join('') : '<div class="d">未有課件</div>';
+}
+$('loginForm').onsubmit = async e => {
+  e.preventDefault();
+  const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: $('pw').value }) });
+  if (r.ok) boot(); else $('loginMsg').textContent = (await r.json()).error || '登入失敗';
+};
+$('logout').onclick = async () => { await fetch('/api/logout', { method: 'POST' }); boot(); };
+
+function pick(f) {
+  if (!f) return;
+  if (!/\.html?$/i.test(f.name)) { $('upMsg').textContent = '只接受 .html 檔案'; $('upMsg').className = 'msg err'; return; }
+  picked = f; $('drop').textContent = '已揀：' + f.name; $('drop').classList.add('on'); $('upBtn').disabled = false; $('upMsg').textContent = '';
+}
+$('drop').onclick = () => $('file').click();
+$('file').onchange = e => pick(e.target.files[0]);
+['dragover', 'dragenter'].forEach(ev => $('drop').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.add('on'); }));
+$('drop').addEventListener('drop', e => { e.preventDefault(); pick(e.dataTransfer.files[0]); });
+
+$('upForm').onsubmit = async e => {
+  e.preventDefault(); if (!picked) return;
+  $('upBtn').disabled = true; $('upMsg').className = 'msg'; $('upMsg').textContent = '上載中…';
+  const r = await fetch('/api/lessons', { method: 'POST', body: picked, headers: {
+    'Content-Type': 'text/html', 'X-Title': encodeURIComponent($('title').value), 'X-Desc': encodeURIComponent($('desc').value), 'X-Subject': encodeURIComponent($('subject').value) } });
+  const j = await r.json().catch(() => ({}));
+  if (r.ok) {
+    $('upMsg').textContent = '✓ 已上載：' + j.title; picked = null; $('upForm').reset();
+    $('drop').textContent = '撳呢度揀 .html 檔案，或者拖入嚟'; $('drop').classList.remove('on'); load();
+  } else { $('upMsg').className = 'msg err'; $('upMsg').textContent = j.error || '上載失敗'; $('upBtn').disabled = false; }
+};
+$('list').onclick = async e => {
+  const b = e.target.closest('.del'); if (!b) return;
+  if (!confirm('確定刪除「' + b.dataset.t + '」？')) return;
+  const r = await fetch('/api/lessons/' + b.dataset.id, { method: 'DELETE' });
+  if (r.ok) load(); else alert('刪除失敗');
+};
+boot();
+</script>
+</body>
+</html>
