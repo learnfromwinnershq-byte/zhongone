@@ -740,7 +740,11 @@ function est(s) {
 
 /* =====================================================================
    4. TIMELINE BUILD
+   Pre-recorded narration (tools/build_voice.mjs) is injected as
+   window.LESSON_AUDIO = { voice, base, items: { [voiceKey(say)]: { f, d } } }
    ===================================================================== */
+const LA = (typeof window !== 'undefined' && window.LESSON_AUDIO) || null;
+function voiceKey(s) { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36) + s.length.toString(36); }
 const CUES = []; let TOTAL = 0;
 (function buildTimeline() {
   let T = 0, chNo = 0, prev = null;
@@ -751,9 +755,11 @@ const CUES = []; let TOTAL = 0;
       c.scene = si;
       c.say = c.think ? '' : (c.say ?? toSpeech(c.sub));
       c.lastAt = c.at ? Math.max(...c.at.map(a => a.t)) : 0;
-      c.dur = c.think ? c.think : Math.max(est(c.say) + 0.55, c.lastAt + 1.0, c.min || 0);
+      c.rec = LA && c.say ? LA.items[voiceKey(c.say)] || null : null;
+      const talk = c.rec ? c.rec.d + 0.4 : est(c.say) + 0.55;
+      c.dur = c.think ? c.think : Math.max(talk, c.lastAt + 1.0, c.min || 0);
       c.start = T; c.end = T + c.dur; T = c.end;
-      c.maxHold = est(c.say) * 1.3 + 4;
+      c.maxHold = (c.rec ? c.rec.d : est(c.say) * 1.3) + 4;
       c.idx = CUES.length; CUES.push(c);
       if (c.set || c.mv) sc.steps.push({ time: c.start, set: c.set, mv: c.mv });
       (c.at || []).forEach(a => sc.steps.push({ time: c.start + a.t, set: a.set, mv: a.mv, sfx: a.sfx }));
@@ -889,16 +895,53 @@ const V = {
   },
   cancel() { this.cur = null; this.speaking = false; if (this.ok) speechSynthesis.cancel(); },
 };
+// Pre-recorded audio player (Google Cloud TTS files generated offline)
+const A = {
+  el: null, cue: -1, speaking: false,
+  play(c) {
+    this.stop();
+    const a = new Audio(LA.base + c.rec.f);
+    a.playbackRate = speed; a.preservesPitch = true;
+    a.onended = a.onerror = () => { if (this.el === a) this.speaking = false; };
+    this.el = a; this.cue = c.idx; this.speaking = true;
+    a.play().catch(() => { if (this.el === a) this.speaking = false; });
+    const nx = CUES.slice(c.idx + 1).find(x => x.rec); // warm the next clip
+    if (nx) { const p = new Audio(); p.preload = 'auto'; p.src = LA.base + nx.rec.f; }
+  },
+  pause() { if (this.el) this.el.pause(); },
+  resume() { if (this.el && this.speaking) { this.el.playbackRate = speed; this.el.play().catch(() => { this.speaking = false; }); return true; } return false; },
+  stop() { if (this.el) { this.el.onended = this.el.onerror = null; this.el.pause(); this.el = null; } this.cue = -1; this.speaking = false; },
+};
+// Narrator: 'rec' (pre-recorded) → 'tts' (browser voice) → 'off' (subtitles only)
+const N = {
+  mode: LA ? 'rec' : 'tts',
+  active() { return this.mode === 'rec' || (this.mode === 'tts' && V.active()); },
+  canSpeak(c) { return !!c.say && (this.mode === 'rec' ? (!!c.rec || V.active()) : this.mode === 'tts' && V.active()); },
+  speak(c) {
+    if (this.mode === 'rec' && c.rec) { V.cancel(); A.play(c); }
+    else { A.stop(); V.speak(c.say); }
+  },
+  get speaking() { return A.speaking || V.speaking; },
+  set speaking(v) { if (!v) { A.speaking = false; V.speaking = false; } },
+  pause() { if (this.mode === 'rec' && A.el) A.pause(); else V.cancel(); },
+  cancel() { A.stop(); V.cancel(); },
+};
 function populateVoices() {
   const sel = $('voiceSel'); sel.innerHTML = '';
+  if (LA) {
+    const o = document.createElement('option'); o.value = 'rec'; o.textContent = 'Google 粵語（預錄 · ' + LA.voice + '）';
+    if (N.mode === 'rec') o.selected = true; sel.appendChild(o);
+  }
   V.voices.forEach((x, i) => {
     const o = document.createElement('option'); o.value = i;
     o.textContent = (x.s >= 100 ? '粵語 · ' : '') + x.v.name + ' (' + x.v.lang + ')';
-    if (V.sel === x.v) o.selected = true; sel.appendChild(o);
+    if (N.mode === 'tts' && V.sel === x.v) o.selected = true; sel.appendChild(o);
   });
   const off = document.createElement('option'); off.value = 'off'; off.textContent = '無旁白（只顯示字幕）';
-  if (!V.sel) off.selected = true; sel.appendChild(off);
+  if (N.mode === 'off' || (N.mode === 'tts' && !V.sel)) off.selected = true; sel.appendChild(off);
   const info = $('voiceInfo'), note = $('vnote');
+  if (N.mode === 'rec') { info.innerHTML = '🔊 粵語旁白：<b>Google ' + LA.voice + '</b>（預錄）　請開聲'; note.textContent = '使用預先錄製嘅 Google 粵語聲音。'; return; }
+  if (N.mode === 'off') { info.innerHTML = '旁白已關閉（只顯示字幕）'; note.textContent = ''; return; }
   if (!V.ok) { info.innerHTML = '呢個瀏覽器唔支援語音，會用<b>字幕模式</b>自動播放。'; note.textContent = ''; return; }
   if (V.sel && V.score(V.sel) >= 100) { info.innerHTML = '🔊 粵語旁白：<b>' + V.sel.name + '</b>　請開聲'; note.textContent = '已揀粵語聲音。'; }
   else if (V.sel) { info.innerHTML = '🔊 旁白：<b>' + V.sel.name + '</b>（非粵語）'; note.textContent = '呢個唔係粵語聲音，讀音可能唔自然。'; }
@@ -953,7 +996,7 @@ function enterCue(ci, natural) {
   if (!playing) return;
   if (natural && c.sfx) SFX.play(c.sfx);
   if (c.think && natural) SFX.play('tick');
-  if (c.say && V.active()) { V.speak(c.say); spokenCue = ci; } else { spokenCue = -1; }
+  if (N.canSpeak(c)) { N.speak(c); spokenCue = ci; } else { spokenCue = -1; }
 }
 function frame(now) {
   const dt = lastFrame ? Math.min(0.1, (now - lastFrame) / 1000) : 0; lastFrame = now;
@@ -961,12 +1004,12 @@ function frame(now) {
     const c = CUES[curCue];
     let mul = speed;
     // narration finished early → glide quickly to the end of this cue
-    if (V.active() && spokenCue === curCue && !V.speaking && c.say && t < c.end - 0.4 && t >= c.start + c.lastAt) mul *= 3.5;
+    if (spokenCue === curCue && !N.speaking && c.say && t < c.end - 0.4 && t >= c.start + c.lastAt) mul *= 3.5;
     let nt = t + dt * mul;
     // narration still talking → hold the clock at the end of the cue
-    if (V.active() && spokenCue === curCue && V.speaking && nt >= c.end - 0.04) {
+    if (spokenCue === curCue && N.speaking && nt >= c.end - 0.04) {
       nt = c.end - 0.04; holdAcc += dt;
-      if (holdAcc > c.maxHold) { V.speaking = false; }
+      if (holdAcc > c.maxHold) { N.speaking = false; }
     }
     if (nt >= TOTAL) { nt = TOTAL - 0.001; t = nt; finish(); }
     else {
@@ -1026,15 +1069,17 @@ function play() {
   $('startOv').classList.add('hide');
   playing = true; setPlayIcon();
   const c = CUES[curCue];
-  // resume at the start of the current sentence so voice & picture stay in sync
-  if (c.say && V.active() && t - c.start > 0.3) { t = c.start; instantNext = true; }
+  // pre-recorded clip: continue exactly where it was paused
+  if (N.mode === 'rec' && A.cue === curCue && spokenCue === curCue) { A.resume(); poke(); return; }
+  // otherwise restart the current sentence so voice & picture stay in sync
+  if (N.canSpeak(c) && t - c.start > 0.3) { t = c.start; instantNext = true; }
   enterCue(curCue, false);
   poke();
 }
-function pause() { playing = false; V.cancel(); setPlayIcon(); poke(); }
+function pause() { playing = false; N.pause(); setPlayIcon(); poke(); }
 function toggle() { playing ? pause() : play(); }
 function seek(time, speak = true) {
-  V.cancel();
+  N.cancel();
   const ci = cueAt(Math.max(0, Math.min(TOTAL - 0.01, time)));
   t = CUES[ci].start; instantNext = true; curCue = ci; spokenCue = -1; holdAcc = 0;
   if (ended && t < TOTAL - 0.5) { ended = false; $('endOv').classList.add('hide'); }
@@ -1043,10 +1088,10 @@ function seek(time, speak = true) {
 }
 function prevCue() { const c = CUES[curCue]; seek(t - c.start > 1.2 || curCue === 0 ? c.start : CUES[curCue - 1].start); }
 function nextCue() { if (curCue < CUES.length - 1) seek(CUES[curCue + 1].start); }
-function finish() { playing = false; ended = true; V.cancel(); setPlayIcon(); $('endOv').classList.remove('hide'); }
+function finish() { playing = false; ended = true; N.cancel(); setPlayIcon(); $('endOv').classList.remove('hide'); }
 function restart() { ended = false; $('endOv').classList.add('hide'); seek(0); if (!playing) play(); }
 
-$('startBtn').onclick = () => { V.speak(' '); play(); };
+$('startBtn').onclick = () => { if (N.mode !== 'rec') V.speak(' '); play(); };
 $('againBtn').onclick = restart;
 $('bPlay').onclick = toggle; $('bReplay').onclick = restart; $('bPrev').onclick = prevCue; $('bNext').onclick = nextCue;
 $('bCC').onclick = () => { player.classList.toggle('nocc'); $('bCC').classList.toggle('off'); };
@@ -1060,19 +1105,22 @@ function toggleFS() {
   else (player.requestFullscreen || player.webkitRequestFullscreen).call(player);
 }
 $('voiceSel').onchange = e => {
-  V.userPicked = true; V.cancel();
-  if (e.target.value === 'off') V.sel = null; else V.sel = V.voices[+e.target.value].v;
+  V.userPicked = true; N.cancel();
+  const v = e.target.value;
+  if (v === 'rec') N.mode = 'rec';
+  else if (v === 'off') { N.mode = 'off'; V.sel = null; }
+  else { N.mode = 'tts'; V.sel = V.voices[+v].v; }
   populateVoices();
   if (playing) enterCue(curCue, false);
 };
-$('speedSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; speed = +b.dataset.v; [...$('speedSeg').children].forEach(x => x.classList.toggle('on', x === b)); if (playing && V.active()) { seek(CUES[curCue].start); } };
+$('speedSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; speed = +b.dataset.v; [...$('speedSeg').children].forEach(x => x.classList.toggle('on', x === b)); if (A.el) A.el.playbackRate = speed; else if (playing && N.active()) { seek(CUES[curCue].start); } };
 $('sfxSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; SFX.on = b.dataset.v === '1'; [...$('sfxSeg').children].forEach(x => x.classList.toggle('on', x === b)); };
 
 // progress bar: drag to seek (snaps to sentence start)
 const bar = $('bar');
 let dragging = false;
 function barTime(e) { const r = bar.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * TOTAL; }
-bar.addEventListener('pointerdown', e => { dragging = true; bar.setPointerCapture(e.pointerId); V.cancel(); seek(barTime(e), false); });
+bar.addEventListener('pointerdown', e => { dragging = true; bar.setPointerCapture(e.pointerId); N.cancel(); seek(barTime(e), false); });
 bar.addEventListener('pointermove', e => {
   const tm = barTime(e), c = CUES[cueAt(tm)], r = bar.getBoundingClientRect();
   const tip = $('tipbox'); tip.textContent = fmt(tm) + ' · ' + SCENES[c.scene].chName;
