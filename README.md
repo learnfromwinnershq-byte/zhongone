@@ -76,6 +76,8 @@ cd /opt/zhongone && git pull && sudo systemctl restart zhongone
 `DATA_DIR` 入面嘅課件唔會因更新而受影響（舊版單檔格式會喺啟動時自動轉換）。
 
 ## 粵語旁白（Google Cloud TTS 預錄）
+初始課件已附帶 Google `yue-HK-Chirp3-HD-Kore` 預錄旁白（`seed/lessons/s1-math-directed-numbers/audio/`，149 句），**部署時唔需要任何 API key**。以下只係新增 / 修改課件旁白時先需要。
+
 課件播放器優先用**預錄旁白**；冇預錄就用瀏覽器內置粵語聲音；再冇就字幕模式。
 用 Google Cloud Text-to-Speech 為課件生成粵語旁白（只需 Node 18+，無依賴）：
 
@@ -88,5 +90,6 @@ GOOGLE_TTS_API_KEY=你的key node tools/build_voice.mjs path/to/lesson --voice=y
 - 腳本讀取課件 `index.html` 入面每句旁白，逐句合成 MP3 → `<課件>/audio/`，並喺 `index.html` 注入 `window.LESSON_AUDIO`（時間軸按真實音檔長度）。
 - 未指定 `--voice` 時自動揀最自然嘅聲音（Chirp3-HD → Chirp-HD → Neural2 → Wavenet → Standard，優先女聲）。
 - 已合成嘅句子快取喺 `.cache/tts/`，改咗幾句再跑只會重新合成改動嘅句。
+- 支援 `HTTPS_PROXY` / `HTTP_PROXY` 代理（例如中國大陸網絡）。
 - API key 只經環境變數傳入，唔會寫入任何檔案；key 需要開通 Cloud Text-to-Speech API，且唔可以限制 HTTP referrer。
 - 生成後：如果係初始課件就 commit `seed/` ；已部署嘅系統可以喺 `/admin` 用「揀資料夾」上載成個課件資料夾（再刪除舊版）。

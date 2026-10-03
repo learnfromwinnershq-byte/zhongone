@@ -13,6 +13,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import crypto from 'node:crypto';
+import http from 'node:http';
+import https from 'node:https';
+import tls from 'node:tls';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -26,17 +29,51 @@ const API = process.env.GOOGLE_TTS_API_BASE || 'https://texttospeech.googleapis.
 
 if (!KEY) { console.error('請先設定環境變數 GOOGLE_TTS_API_KEY'); process.exit(1); }
 
+// HTTPS request that honours HTTPS_PROXY / HTTP_PROXY (Node's fetch ignores them).
+function request(url, { method = 'GET', headers = {}, body } = {}) {
+  const u = new URL(url);
+  const proxy = u.protocol === 'https:' && (process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy);
+  return new Promise((resolve, reject) => {
+    const go = createConnection => {
+      const mod = u.protocol === 'https:' ? https : http;
+      const req = mod.request({ host: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname + u.search, method, headers, createConnection, timeout: 60000 }, res => {
+        const chunks = []; res.on('data', c => chunks.push(c));
+        res.on('end', () => resolve({ status: res.statusCode, text: Buffer.concat(chunks).toString('utf8') }));
+      });
+      req.on('timeout', () => req.destroy(new Error('request timeout')));
+      req.on('error', reject);
+      req.end(body);
+    };
+    if (!proxy) return go(undefined);
+    const p = new URL(proxy);
+    const auth = p.username ? { 'Proxy-Authorization': 'Basic ' + Buffer.from(decodeURIComponent(p.username) + ':' + decodeURIComponent(p.password)).toString('base64') } : {};
+    const tunnel = http.request({ host: p.hostname, port: p.port || 80, method: 'CONNECT', path: `${u.hostname}:${u.port || 443}`, headers: auth, timeout: 30000 });
+    tunnel.on('connect', (res, socket) => {
+      if (res.statusCode !== 200) { socket.destroy(); return reject(new Error(`proxy CONNECT ${res.statusCode}`)); }
+      go(() => tls.connect({ socket, servername: u.hostname }));
+    });
+    tunnel.on('timeout', () => tunnel.destroy(new Error('proxy timeout')));
+    tunnel.on('error', reject);
+    tunnel.end();
+  });
+}
+
 async function api(pathname, body) {
   for (let attempt = 1; ; attempt++) {
-    const res = await fetch(API + pathname, {
-      method: body ? 'POST' : 'GET',
-      headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': KEY },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    if (res.ok) return res.json();
-    const text = await res.text();
+    let res;
+    try {
+      res = await request(API + pathname, {
+        method: body ? 'POST' : 'GET',
+        headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': KEY },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch (e) {
+      if (attempt < 5) { await new Promise(r => setTimeout(r, 1500 * attempt)); continue; }
+      throw new Error(`連唔到 Google TTS（${e.message}）；如需代理請設定 HTTPS_PROXY`);
+    }
+    if (res.status >= 200 && res.status < 300) return JSON.parse(res.text);
     if ((res.status === 429 || res.status >= 500) && attempt < 5) { await new Promise(r => setTimeout(r, 1500 * attempt)); continue; }
-    throw new Error(`Google TTS ${res.status}: ${text.slice(0, 400)}`);
+    throw new Error(`Google TTS ${res.status}: ${res.text.slice(0, 400)}`);
   }
 }
 
