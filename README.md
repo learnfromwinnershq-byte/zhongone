@@ -93,3 +93,26 @@ GOOGLE_TTS_API_KEY=你的key node tools/build_voice.mjs path/to/lesson --voice=y
 - 支援 `HTTPS_PROXY` / `HTTP_PROXY` 代理（例如中國大陸網絡）。
 - API key 只經環境變數傳入，唔會寫入任何檔案；key 需要開通 Cloud Text-to-Speech API，且唔可以限制 HTTP referrer。
 - 生成後：如果係初始課件就 commit `seed/` ；已部署嘅系統可以喺 `/admin` 用「揀資料夾」上載成個課件資料夾（再刪除舊版）。
+
+## 匯出 MP4（抖音 / 下載）
+初始課件已經匯出好 MP4，放喺 GitHub Release **`s1-math-directed-numbers-video`**：
+- 完整橫版 1920×1080（約 14 分鐘）
+- 抖音直版分集 1080×1920（每章一集，連封面 `covers/*.jpg`）
+
+課件播放器控制列有「⬇ 下載 MP4」選單（播完亦會出現）。選單會先試用伺服器本機嘅 `video/`，冇就用 GitHub Release 連結。
+如果 VPS 喺中國大陸、GitHub 下載慢，可以將 MP4 放到本機（之後選單自動用本機檔案）：
+```bash
+cd $DATA_DIR/lessons/s1-math-directed-numbers && mkdir -p video && \
+gh release download s1-math-directed-numbers-video -R learnfromwinnershq-byte/zhongone -p '*.mp4' -D video
+```
+
+### 自己重新匯出（改咗課件內容之後）
+需要 Google Chrome（或設定 `CHROME_PATH`）同 ffmpeg，唔需要 API key：
+```bash
+node tools/render_video.mjs                         # 完整橫版 + 全部直版分集 → dist/<課件>/
+node tools/render_video.mjs --only=vertical --chapters=3   # 只出某一集（試樣）
+node tools/render_video.mjs --workers=6 --release   # 上載到 GitHub Release，並喺課件注入下載選單
+```
+- 逐格渲染：播放器嘅 render 模式將所有 CSS 動畫暫停並按課件時間定位，所以每一格都準確，唔受電腦快慢影響。
+- 音軌：預錄旁白 + 音效按時間軸精確放置；字幕直接畫喺畫面上。
+- 已完成嘅章節會保留喺 `dist/<課件>/.work/`，中斷後再跑會續做。MP4 唔入 git（太大），只放 Release。

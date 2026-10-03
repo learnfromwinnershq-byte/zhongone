@@ -237,6 +237,33 @@ button{font:inherit;color:inherit}
 .ov-v b{color:#dfe5f3}
 .ov-keys{font-size:12px;color:rgba(255,255,255,.4)}
 .ov-sum{font-family:"Noto Sans HK";font-size:clamp(15px,2vw,24px);line-height:1.8;color:#dfe5f3}
+/* ---------- download menu ---------- */
+#dlPanel{position:absolute;right:24px;bottom:96px;width:380px;max-height:70vh;overflow:auto;background:rgba(12,16,30,.97);border:1px solid var(--line);border-radius:14px;padding:14px;z-index:6;font-size:14px;display:none}
+#dlPanel.open{display:block}
+#dlPanel h4{font-size:12px;letter-spacing:.08em;color:var(--muted);margin:10px 4px 6px;font-weight:600}
+#dlPanel h4:first-child{margin-top:0}
+#dlPanel a{display:flex;gap:10px;align-items:center;padding:8px 10px;border-radius:9px;color:#fff;text-decoration:none}
+#dlPanel a:hover{background:rgba(255,255,255,.08)}
+#dlPanel a span:last-child{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap}
+#dlPanel .note{color:var(--muted);font-size:12px;line-height:1.5;margin:8px 4px 0}
+.ov-dl{color:var(--blue);font-size:15px;background:none;border:1px solid rgba(134,180,255,.4);border-radius:999px;padding:8px 18px;cursor:pointer}
+
+/* ---------- render mode (tools/render_video.mjs) ---------- */
+body.render #controls,body.render .overlay,body.render #settings,body.render #dlPanel{display:none!important}
+#vlayout{display:none}
+body.vertical #player{width:1080px;height:1920px;background:radial-gradient(900px 700px at 20% 8%,#16234a 0%,transparent 60%),radial-gradient(800px 700px at 90% 96%,#1c1642 0%,transparent 60%),#0a0f1e}
+body.vertical #stage{border-radius:30px;box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 2px rgba(255,255,255,.06)}
+body.vertical #hud,body.vertical #brand{display:none}
+body.vertical #vlayout{display:block;position:absolute;inset:0;pointer-events:none}
+#vhead{position:absolute;left:60px;right:60px;top:150px;text-align:center}
+#vhead .vk{font-size:34px;letter-spacing:.3em;color:var(--blue);font-weight:700}
+#vhead .vt{font-family:"Noto Sans HK";font-size:74px;font-weight:900;margin-top:18px;letter-spacing:.04em}
+#vhead .vc{margin-top:30px;display:inline-flex;align-items:center;gap:20px;font-family:"Noto Sans HK";font-size:44px;font-weight:700;padding:12px 34px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid var(--line)}
+#vhead .vc b{color:var(--acc)}
+#vbox{position:absolute;left:44px;right:44px;top:1320px;height:430px;display:flex;justify-content:center;align-items:flex-start}
+body.vertical #sub{position:static;transform:none!important;max-width:992px;font-size:62px;line-height:1.42;padding:22px 40px 24px;border-radius:26px}
+#vfoot{position:absolute;left:0;right:0;bottom:90px;text-align:center;font-family:"Noto Sans HK";font-size:36px;font-weight:700;letter-spacing:.12em;color:rgba(255,255,255,.4)}
+#vfoot b{color:var(--acc);font-family:Inter}
 </style>
 </head>
 <body>
@@ -252,6 +279,11 @@ button{font:inherit;color:inherit}
     </div>
     <div id="sub" class="empty"></div>
   </div>
+  <div id="vlayout">
+    <div id="vhead"><div class="vk" id="vSeries">中一 · S.1 數學</div><div class="vt" id="vTitle">有向數嘅乘法同除法</div><div class="vc"><b id="vNo">第 1 集</b><span id="vCh"></span></div></div>
+    <div id="vbox"></div>
+    <div id="vfoot">先 <b>SIGN</b> · 再 <b>NUMBER</b></div>
+  </div>
 
   <div class="overlay" id="startOv">
     <div class="ov-k">S.1 MATHEMATICS · 2.3</div>
@@ -265,6 +297,7 @@ button{font:inherit;color:inherit}
     <div class="ov-k">COMPLETE · 完成</div>
     <div class="ov-t">先 SIGN，再 NUMBER</div>
     <div class="ov-sum">負號 even 個 → <span class="pos">positive</span> · 負號 odd 個 → <span class="neg">negative</span><br>Brackets 先 · 然後 left to right · 前面嘅負號都要數</div>
+    <button class="ov-dl" id="endDL" style="display:none">⬇ 下載 MP4（橫版 / 抖音直版）</button>
     <button class="bigplay" id="againBtn" aria-label="Replay"><svg viewBox="0 0 24 24" style="margin:0"><path d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg></button>
   </div>
 
@@ -279,9 +312,11 @@ button{font:inherit;color:inherit}
       <span id="chname"></span>
       <button class="cbtn" id="bCC" title="字幕 (C)"><svg viewBox="0 0 24 24"><path d="M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm-8 7H9.5v-.5h-2v3h2V13H11v1a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1zm7 0h-1.5v-.5h-2v3h2V13H18v1a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1z"/></svg></button>
       <button class="cbtn" id="bSet" title="設定"><svg viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1L11 21h4l.4-2.9a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5A3.5 3.5 0 1 1 13 8.5a3.5 3.5 0 0 1 0 7z"/></svg></button>
+      <button class="cbtn" id="bDL" title="下載 MP4" style="display:none"><svg viewBox="0 0 24 24"><path d="M11 3h2v9.2l3.3-3.3 1.4 1.4L12 16l-5.7-5.7 1.4-1.4 3.3 3.3zM5 18h14v2H5z"/></svg></button>
       <button class="cbtn" id="bFS" title="全螢幕 (F)"><svg viewBox="0 0 24 24"><path d="M5 5h5V3H3v7h2zm9-2v2h5v5h2V3zm5 16h-5v2h7v-7h-2zM5 14H3v7h7v-2H5z"/></svg></button>
     </div>
   </div>
+  <div id="dlPanel"></div>
   <div id="settings">
     <label>旁白聲音 VOICE</label>
     <select id="voiceSel"></select>
@@ -294,6 +329,7 @@ button{font:inherit;color:inherit}
 </div>
 
 <script id="lesson-audio">window.LESSON_AUDIO = {"voice":"yue-HK-Chirp3-HD-Kore","rate":1,"base":"audio/","items":{"6ppfoji":{"f":"6ppfoji.mp3","d":3.624},"1oi7agm10":{"f":"1oi7agm10.mp3","d":4.296},"1wdo2yag":{"f":"1wdo2yag.mp3","d":4.128},"1k832nvj":{"f":"1k832nvj.mp3","d":4.536},"2c0ojcr":{"f":"2c0ojcr.mp3","d":4.536},"1c3lci5e":{"f":"1c3lci5e.mp3","d":2.016},"v8ut0do":{"f":"v8ut0do.mp3","d":3.504},"17nqu9ol":{"f":"17nqu9ol.mp3","d":5.376},"15sz28ch":{"f":"15sz28ch.mp3","d":3.768},"5kz9ajk":{"f":"5kz9ajk.mp3","d":4.128},"1emcazns":{"f":"1emcazns.mp3","d":4.776},"17ueam9q":{"f":"17ueam9q.mp3","d":4.776},"1jbmsonb":{"f":"1jbmsonb.mp3","d":2.616},"kc1n1v10":{"f":"kc1n1v10.mp3","d":3.624},"1qgowinq":{"f":"1qgowinq.mp3","d":3.744},"im7bsqo":{"f":"im7bsqo.mp3","d":4.416},"dmfe57o":{"f":"dmfe57o.mp3","d":4.296},"n0crcth":{"f":"n0crcth.mp3","d":4.104},"w3cd1wi":{"f":"w3cd1wi.mp3","d":3.936},"1ot9nnme":{"f":"1ot9nnme.mp3","d":5.328},"1nnwduz13":{"f":"1nnwduz13.mp3","d":4.776},"106nd4me":{"f":"106nd4me.mp3","d":3.744},"10y46xm16":{"f":"10y46xm16.mp3","d":4.608},"1g0r9t4f":{"f":"1g0r9t4f.mp3","d":4.248},"1c8plvuh":{"f":"1c8plvuh.mp3","d":3.936},"d69t6qr":{"f":"d69t6qr.mp3","d":4.416},"o4n8qnl":{"f":"o4n8qnl.mp3","d":3.528},"t06mhls":{"f":"t06mhls.mp3","d":4.776},"91hppek":{"f":"91hppek.mp3","d":5.376},"rmqztee":{"f":"rmqztee.mp3","d":3.216},"mkw4xrh":{"f":"mkw4xrh.mp3","d":4.344},"ktsmuo13":{"f":"ktsmuo13.mp3","d":4.704},"1yrna42m":{"f":"1yrna42m.mp3","d":4.056},"1bc86n2s":{"f":"1bc86n2s.mp3","d":5.424},"1i0xyo2i":{"f":"1i0xyo2i.mp3","d":3.888},"1shdb5le":{"f":"1shdb5le.mp3","d":3.096},"1y8tiarc":{"f":"1y8tiarc.mp3","d":1.968},"1cpi81pb":{"f":"1cpi81pb.mp3","d":1.656},"1dbnw2e9":{"f":"1dbnw2e9.mp3","d":1.656},"9lf3fng":{"f":"9lf3fng.mp3","d":2.976},"k6g2zda":{"f":"k6g2zda.mp3","d":2.304},"kx0koih":{"f":"kx0koih.mp3","d":3.744},"kq2cubc":{"f":"kq2cubc.mp3","d":2.064},"ygvp7wq":{"f":"ygvp7wq.mp3","d":4.368},"1qgp1eni":{"f":"1qgp1eni.mp3","d":2.928},"mdm3n6z":{"f":"mdm3n6z.mp3","d":4.056},"zbv1wwx":{"f":"zbv1wwx.mp3","d":5.904},"goia7by":{"f":"goia7by.mp3","d":6.096},"617hidv":{"f":"617hidv.mp3","d":4.656},"9vg3zs1b":{"f":"9vg3zs1b.mp3","d":5.016},"1h9ylicd":{"f":"1h9ylicd.mp3","d":3.576},"vt3p3pt":{"f":"vt3p3pt.mp3","d":6.456},"1r2r0o8w":{"f":"1r2r0o8w.mp3","d":5.448},"1x8k465l":{"f":"1x8k465l.mp3","d":4.824},"1nia25mm":{"f":"1nia25mm.mp3","d":4.656},"196hk8zw":{"f":"196hk8zw.mp3","d":7.344},"rbjtexh":{"f":"rbjtexh.mp3","d":3.336},"1sbstyui":{"f":"1sbstyui.mp3","d":4.248},"3ifc2kg":{"f":"3ifc2kg.mp3","d":4.008},"1jammr6n":{"f":"1jammr6n.mp3","d":5.424},"1v7lnhtr":{"f":"1v7lnhtr.mp3","d":5.544},"1xtnpi9u":{"f":"1xtnpi9u.mp3","d":6.096},"1yqqniri":{"f":"1yqqniri.mp3","d":4.344},"1pyoo6s":{"f":"1pyoo6s.mp3","d":4.416},"5sl8kbr":{"f":"5sl8kbr.mp3","d":4.296},"iwg9com":{"f":"iwg9com.mp3","d":3.528},"1y36al37":{"f":"1y36al37.mp3","d":1.968},"ga1w68w":{"f":"ga1w68w.mp3","d":5.904},"1rbro78r":{"f":"1rbro78r.mp3","d":4.176},"1h4hmamq":{"f":"1h4hmamq.mp3","d":4.368},"1b8neill":{"f":"1b8neill.mp3","d":5.448},"qe6ycft":{"f":"qe6ycft.mp3","d":5.376},"1pka63ki":{"f":"1pka63ki.mp3","d":3.624},"y57w9lo":{"f":"y57w9lo.mp3","d":5.496},"1n65xrck":{"f":"1n65xrck.mp3","d":3.336},"jgthpi":{"f":"jgthpi.mp3","d":3.816},"gmqem7p":{"f":"gmqem7p.mp3","d":5.976},"bshjo7j":{"f":"bshjo7j.mp3","d":3.024},"1eekebzp":{"f":"1eekebzp.mp3","d":5.256},"id0gkgj":{"f":"id0gkgj.mp3","d":4.824},"13b9glek":{"f":"13b9glek.mp3","d":4.704},"1n7h8lrn":{"f":"1n7h8lrn.mp3","d":4.968},"15qnhwnd":{"f":"15qnhwnd.mp3","d":1.776},"qyy0z4p":{"f":"qyy0z4p.mp3","d":5.496},"1jzn0zzm":{"f":"1jzn0zzm.mp3","d":5.616},"1pxhwgkj":{"f":"1pxhwgkj.mp3","d":5.568},"z3qz3ms":{"f":"z3qz3ms.mp3","d":5.256},"e8a09en":{"f":"e8a09en.mp3","d":4.944},"1f8775ni":{"f":"1f8775ni.mp3","d":4.296},"1qk89wat":{"f":"1qk89wat.mp3","d":5.664},"1lemt2tv":{"f":"1lemt2tv.mp3","d":5.616},"z6q5ptw":{"f":"z6q5ptw.mp3","d":5.376},"ah0z1sh":{"f":"ah0z1sh.mp3","d":3.768},"1a5fnbhn":{"f":"1a5fnbhn.mp3","d":4.848},"sheta6i":{"f":"sheta6i.mp3","d":2.928},"1yk9u07l":{"f":"1yk9u07l.mp3","d":3.696},"2z7pb4u":{"f":"2z7pb4u.mp3","d":6.408},"w72asst":{"f":"w72asst.mp3","d":4.536},"1reqbyw":{"f":"1reqbyw.mp3","d":6.936},"1y3vgttr":{"f":"1y3vgttr.mp3","d":6.336},"z9phxml":{"f":"z9phxml.mp3","d":4.296},"xayncrq":{"f":"xayncrq.mp3","d":5.544},"p1iu3ok":{"f":"p1iu3ok.mp3","d":4.008},"127fxc2s":{"f":"127fxc2s.mp3","d":4.536},"msc1c0y":{"f":"msc1c0y.mp3","d":5.016},"1npsmjii":{"f":"1npsmjii.mp3","d":4.104},"10f3ft5m":{"f":"10f3ft5m.mp3","d":5.304},"1sgn1ipo":{"f":"1sgn1ipo.mp3","d":4.776},"1ih2flvn":{"f":"1ih2flvn.mp3","d":4.944},"psi3ey11":{"f":"psi3ey11.mp3","d":6.576},"1rarszoi":{"f":"1rarszoi.mp3","d":4.248},"18f48lnv":{"f":"18f48lnv.mp3","d":5.448},"6mcp5q":{"f":"6mcp5q.mp3","d":4.656},"d041ofo":{"f":"d041ofo.mp3","d":5.328},"oup2vs14":{"f":"oup2vs14.mp3","d":7.128},"ge2il68":{"f":"ge2il68.mp3","d":2.208},"1iadncs16":{"f":"1iadncs16.mp3","d":8.136},"1rjh0a6j":{"f":"1rjh0a6j.mp3","d":4.824},"ancdljy":{"f":"ancdljy.mp3","d":4.656},"1aa81bil":{"f":"1aa81bil.mp3","d":4.944},"1dqyejip":{"f":"1dqyejip.mp3","d":5.928},"lvxh8014":{"f":"lvxh8014.mp3","d":6.528},"fppjnze":{"f":"fppjnze.mp3","d":3.648},"egh9jij":{"f":"egh9jij.mp3","d":5.064},"4oc24sf":{"f":"4oc24sf.mp3","d":4.368},"hvk1yeq":{"f":"hvk1yeq.mp3","d":5.616},"m4a6vdu":{"f":"m4a6vdu.mp3","d":5.088},"mkdkwkg":{"f":"mkdkwkg.mp3","d":4.776},"xprjb6l":{"f":"xprjb6l.mp3","d":4.128},"126m8q417":{"f":"126m8q417.mp3","d":6.576},"1gtk2zuc":{"f":"1gtk2zuc.mp3","d":3.168},"oosptup":{"f":"oosptup.mp3","d":4.944},"e5g93zr":{"f":"e5g93zr.mp3","d":6.264},"1c0r5byn":{"f":"1c0r5byn.mp3","d":5.616},"m77necc":{"f":"m77necc.mp3","d":3.576},"gplq9r14":{"f":"gplq9r14.mp3","d":8.064},"tt0ybot":{"f":"tt0ybot.mp3","d":6.408},"12xd59c18":{"f":"12xd59c18.mp3","d":7.464},"1ywlsxxq":{"f":"1ywlsxxq.mp3","d":5.256},"14tetyqg":{"f":"14tetyqg.mp3","d":4.056},"193g6uf13":{"f":"193g6uf13.mp3","d":7.176},"1l7sl0m7":{"f":"1l7sl0m7.mp3","d":1.968},"1322illn":{"f":"1322illn.mp3","d":4.344},"15ggciwu":{"f":"15ggciwu.mp3","d":5.544},"auampmq":{"f":"auampmq.mp3","d":7.248},"1967747f":{"f":"1967747f.mp3","d":3.816},"bplar518":{"f":"bplar518.mp3","d":5.376},"78lv4jm":{"f":"78lv4jm.mp3","d":5.544},"1h5ed7xx":{"f":"1h5ed7xx.mp3","d":6.696}}};</script>
+<script id="lesson-video">window.LESSON_VIDEO = {"local":"video/","release":"https://github.com/learnfromwinnershq-byte/zhongone/releases/download/s1-math-directed-numbers-video/","items":[{"kind":"landscape","label":"完整版（15 章）","file":"s1-math-directed-numbers-full-1080p.mp4","dur":835.2,"size":64619558},{"kind":"vertical","label":"第 1 集 · 開場：今日學咩","file":"s1-math-directed-numbers-ep01.mp4","dur":27,"size":2552890},{"kind":"vertical","label":"第 2 集 · 點解 負 × 負 = 正？","file":"s1-math-directed-numbers-ep02.mp4","dur":56.2,"size":4913235},{"kind":"vertical","label":"第 3 集 · Sign Rule：兩個數","file":"s1-math-directed-numbers-ep03.mp4","dur":76.8,"size":6629996},{"kind":"vertical","label":"第 4 集 · 練習 ①：快速判斷 sign","file":"s1-math-directed-numbers-ep04.mp4","dur":41.7,"size":3315182},{"kind":"vertical","label":"第 5 集 · Division：sign rule 一樣","file":"s1-math-directed-numbers-ep05.mp4","dur":53,"size":4610386},{"kind":"vertical","label":"第 6 集 · 練習 ②：Division","file":"s1-math-directed-numbers-ep06.mp4","dur":54.4,"size":4286074},{"kind":"vertical","label":"第 7 集 · 多個數：數負號","file":"s1-math-directed-numbers-ep07.mp4","dur":93.1,"size":7901231},{"kind":"vertical","label":"第 8 集 · 陷阱：最前面嘅負號","file":"s1-math-directed-numbers-ep08.mp4","dur":55.4,"size":4604675},{"kind":"vertical","label":"第 9 集 · 分數 同 小數","file":"s1-math-directed-numbers-ep09.mp4","dur":69.6,"size":5783104},{"kind":"vertical","label":"第 10 集 · 連續除法：Left to Right","file":"s1-math-directed-numbers-ep10.mp4","dur":54.5,"size":4793114},{"kind":"vertical","label":"第 11 集 · Brackets 優先","file":"s1-math-directed-numbers-ep11.mp4","dur":69.8,"size":5836005},{"kind":"vertical","label":"第 12 集 · 五大常見錯誤","file":"s1-math-directed-numbers-ep12.mp4","dur":37,"size":3307840},{"kind":"vertical","label":"第 13 集 · 10 秒檢查答案","file":"s1-math-directed-numbers-ep13.mp4","dur":30,"size":2478061},{"kind":"vertical","label":"第 14 集 · 挑戰題","file":"s1-math-directed-numbers-ep14.mp4","dur":85.2,"size":6938130},{"kind":"vertical","label":"第 15 集 · 總結","file":"s1-math-directed-numbers-ep15.mp4","dur":31.4,"size":2773247}]};</script>
 <script>
 /* =====================================================================
    1. CONTENT HELPERS
@@ -777,6 +813,7 @@ const CUES = []; let TOTAL = 0;
 const $ = id => document.getElementById(id);
 const player = $('player'), stage = $('stage'), layer = $('layer');
 let cur = null;           // current built scene
+const R = { on: false, vertical: false, born: new WeakMap() }; // render-mode state (section 11)
 let instantNext = true;   // apply next render without transitions (after seek)
 
 function buildScene(si) {
@@ -837,11 +874,12 @@ function applyDOM(S, st, instant) {
   });
   if (instant) { void layer.offsetWidth; layer.classList.remove('instant'); }
 }
+const removals = []; // fading-out scenes, removed on the lesson clock (deterministic for video export)
 function switchScene(si, instant) {
   const old = cur;
   if (old) {
     if (instant) old.box.remove();
-    else { old.box.classList.add('leaving'); setTimeout(() => old.box.remove(), 500); }
+    else { old.box.classList.add('leaving'); removals.push({ box: old.box, at: t + 0.5 }); }
   }
   const S = buildScene(si);
   layer.appendChild(S.box);
@@ -1036,6 +1074,7 @@ function subHTML(text) {
 function render() {
   const ci = cueAt(t), c = CUES[ci];
   renderStage(t, ci);
+  for (let i = removals.length - 1; i >= 0; i--) if (t >= removals[i].at || t < removals[i].at - 1.5) { removals[i].box.remove(); removals.splice(i, 1); }
   if (ci !== subCue) {
     subCue = ci; const el = $('sub');
     if (c.think) { el.className = 'think'; el.innerHTML = '⏸ 停一停，自己諗吓先'; }
@@ -1053,6 +1092,7 @@ function render() {
   const sc = SCENES[c.scene];
   $('hudNo').textContent = String(sc.chNo).padStart(2, '0'); $('hudNm').textContent = sc.chName;
   $('chname').textContent = sc.chName;
+  if (R.vertical) { $('vNo').textContent = '第 ' + sc.chNo + ' 集'; $('vCh').textContent = sc.chName; }
   const pct = (t / TOTAL) * 100;
   $('fill').style.width = pct + '%'; $('knob').style.left = pct + '%';
   $('time').textContent = fmt(t) + ' / ' + fmt(TOTAL);
@@ -1161,6 +1201,74 @@ window.addEventListener('resize', fit); fit();
 if (V.ok) { V.load(); speechSynthesis.onvoiceschanged = () => V.load(); setTimeout(() => V.load(), 600); } else populateVoices();
 curCue = 0; render(); poke();
 requestAnimationFrame(frame);
+/* =====================================================================
+   10. MP4 DOWNLOADS  (window.LESSON_VIDEO is injected by tools/render_video.mjs)
+   ===================================================================== */
+const LV = window.LESSON_VIDEO || null;
+if (LV && LV.items && LV.items.length) {
+  $('bDL').style.display = ''; $('endDL').style.display = '';
+  const mb = n => (n / 1048576).toFixed(n > 104857600 ? 0 : 1) + ' MB';
+  const mmss = d => Math.floor(d / 60) + ':' + String(Math.round(d % 60)).padStart(2, '0');
+  let built = false;
+  async function buildDL() {
+    if (built) return; built = true;
+    // Prefer copies served next to the lesson (video/…); otherwise use the GitHub Release.
+    let local = false;
+    try { local = (await fetch(LV.local + LV.items[0].file, { method: 'HEAD' })).ok; } catch (e) { }
+    const href = f => (local ? LV.local : LV.release) + f;
+    const row = it => `<a href="${href(it.file)}" target="_blank" rel="noopener" download="${it.file}"><span>⬇</span><span>${it.label}</span><span>${mmss(it.dur)} · ${mb(it.size)}</span></a>`;
+    const land = LV.items.filter(i => i.kind === 'landscape'), vert = LV.items.filter(i => i.kind === 'vertical');
+    $('dlPanel').innerHTML = (land.length ? '<h4>完整版 · 橫向 1920×1080</h4>' + land.map(row).join('') : '') +
+      (vert.length ? '<h4>抖音直版分集 · 1080×1920</h4>' + vert.map(row).join('') : '') +
+      '<div class="note">MP4（H.264 + AAC），包含粵語旁白同字幕。</div>';
+  }
+  const openDL = async e => { e && e.stopPropagation(); await buildDL(); $('settings').classList.remove('open'); $('dlPanel').classList.toggle('open'); poke(); };
+  $('bDL').onclick = openDL;
+  $('endDL').onclick = e => { $('endOv').classList.add('hide'); openDL(e); };
+  $('dlPanel').onclick = e => e.stopPropagation();
+  document.addEventListener('click', () => $('dlPanel').classList.remove('open'));
+}
+
+/* =====================================================================
+   11. RENDER MODE — tools/render_video.mjs drives this frame by frame.
+   CSS transitions/animations are paused and positioned on the lesson clock,
+   so every exported frame is exact regardless of how fast it is captured.
+   ===================================================================== */
+window.__render = {
+  async setup(opts = {}) {
+    R.on = true; playing = false; SFX.on = false; N.cancel(); N.mode = 'off';
+    poke = () => { }; player.classList.remove('ui');
+    document.body.classList.add('render');
+    if (opts.layout === 'vertical') {
+      R.vertical = true; document.body.classList.add('vertical'); $('vbox').appendChild($('sub'));
+      if (opts.series) $('vSeries').textContent = opts.series;
+      if (opts.title) $('vTitle').textContent = opts.title;
+    }
+    fit();
+    const loads = [];
+    for (const f of ['Inter', 'Noto Sans HK']) for (const w of [400, 500, 600, 700, 800, 900]) loads.push(document.fonts.load(`${w} 40px "${f}"`, '中一有向數乘除 Aa0+−×÷'));
+    await Promise.allSettled(loads); await document.fonts.ready;
+    const chs = SCENES.filter(s => s.ch);
+    return {
+      total: TOTAL, title: document.title, audioBase: LA ? LA.base : null,
+      chapters: chs.map((s, i) => ({ no: s.chNo, name: s.chName, start: s.start, end: i + 1 < chs.length ? chs[i + 1].start : TOTAL })),
+      cues: CUES.map(c => ({ start: c.start, end: c.end, think: c.think || 0, sfx: c.sfx || null, rec: c.rec ? c.rec.f : null })),
+      steps: SCENES.flatMap(s => s.steps.filter(st => st.sfx).map(st => ({ t: st.time, sfx: st.sfx }))),
+    };
+  },
+  jump(time) {
+    document.getAnimations().forEach(a => { try { a.finish(); } catch (e) { a.cancel(); } });
+    R.born = new WeakMap(); instantNext = true; t = time; curCue = cueAt(t); render();
+  },
+  frame(time) {
+    t = time; curCue = cueAt(t); render();
+    for (const a of document.getAnimations()) {
+      if (!R.born.has(a)) { R.born.set(a, time); a.pause(); }
+      a.currentTime = Math.max(0, (time - R.born.get(a)) * 1000);
+    }
+  },
+};
+
 window.__lesson = { SCENES, CUES, seek, get t() { return t; }, TOTAL };
 </script>
 </body>
